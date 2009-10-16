@@ -31,7 +31,7 @@ function versioncontrol_fakevcs_form_alter(&$form, $form_state, $form_id) {
  * Add CVS specific elements to the add/edit repository form.
  */
 function versioncontrol_fakevcs_repository_admin_form_alter(&$form, $form_state, $form_id) {
-  $repository = $form['#repository'];
+  $repository = isset($form['#repository'])? $form['#repository']: null;
 
   $form['#versioncontrol_fakevcs'] = TRUE;
 
