@@ -432,44 +432,6 @@ function versioncontrol_get_backends() {
 }
 
 /**
- * Determine if a given backend module implements a specific backend function.
- *
- * @param $vcs
- *   The unique string identifier of the version control system.
- * @param $function
- *   The function name without module prefix.
- *
- * @return
- *   TRUE if the backend implements the function, or FALSE otherwise.
- */
-function versioncontrol_backend_implements($vcs, $function) {
-  if (function_exists('versioncontrol_'. $vcs .'_'. $function)) {
-    return TRUE;
-  }
-  return FALSE;
-}
-
-/**
- * Call a function from the desired VCS backend and return its result value.
- *
- * @param $vcs
- *   The unique string identifier of the version control system.
- * @param $function
- *   The function name without module prefix.
- * @param $args
- *   An array of arguments that will be passed to the backend function.
- *
- * @return
- *   Returns the result of the backend function. The result value of calls
- *   where the backend function has no implementation is undefined, as they
- *   are supposed to be checked with versioncontrol_backend_implements()
- *   before those functions are called.
- */
-function _versioncontrol_call_backend($vcs, $function, $args) {
-  return call_user_func_array('versioncontrol_'. $vcs .'_'. $function, $args);
-}
-
-/**
  * Determine all user account authorization methods
  * (free for all, only admin may create accounts, per-repository approval, ...)
  * by invoking hook_versioncontrol_authorization_methods().

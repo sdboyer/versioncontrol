@@ -13,9 +13,6 @@ on code
 
 "Example: VersionControlItem::fetchCommitOperations() (see above) can be reduced to VersionControlItem::commitOperations(), and the item object keeps track whether the commit operations have already been fetched or not (is_null($this->commitOperations))."
 
-Replace versioncontrol_backend_implements() approach with one interface per feature
-- start with the "simple" VersionControlRepositoryURLBackend interface proposed by jpetso
-
 - update documentation
   - versioncontrol_fakevcs module
   - hook_versioncontrol.php
