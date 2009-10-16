@@ -54,8 +54,15 @@ function versioncontrol_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'username' => array(
-        'description' => 'VCS specific username of the user who executed this operation. For distributed version control systems, this should be the author, not the committer.',
+      'author' => array(
+        'description' => 'VCS specific username of the user who is the original author of this operation. For centralized version control systems this and committer are the same.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'committer' => array(
+        'description' => 'VCS specific username of the user who executed this operation. For distributed version control systems, this should be the author, not the committer. For centralized version control systems this and author are the same.',
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
@@ -81,7 +88,8 @@ function versioncontrol_schema() {
       'repo_id' => array('repo_id'),
       'date' => array('date'),
       'uid' => array('uid'),
-      'username' => array('username'),
+      'author' => array('author'),
+      'committer' => array('committer'),
       'revision' => array('revision'),
     ),
     'primary key' => array('vc_op_id'),
@@ -156,7 +164,7 @@ function versioncontrol_schema() {
       ),
       'type' => array(
         'description' =>
-          'Whether this label is a branch or a tag. Consequently, this can be either VERSIONCONTROL_OPERATION_BRANCH or VERSIONCONTROL_OPERATION_TAG. (If we went for total correctness, it would have been VERSIONCONTROL_LABEL_{BRANCH,TAG} but I fear the confusion coming out of two similar constants. Therefore, reusing the operation constants.)',
+          'Whether this label is a branch or a tag. Consequently, this can be either VERSIONCONTROL_LABEL_BRANCH or VERSIONCONTROL_LABEL_TAG.',
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
@@ -192,7 +200,7 @@ function versioncontrol_schema() {
       ),
       'type' => array(
         'description' =>
-          'Real member or cached item. This is an implementation detail of a performance optimization (for queries with a "paths" constraint), and private to the API module. Other modules must not touch this. VERSIONCONTROL_OPERATION_MEMBER_ITEM is the standard value and makes up for most entries in here, whereas VERSIONCONTROL_OPERATION_CACHED_AFFECTED_ITEM is the optimization (denoting an item that is not part of a versioncontrol_get_operation_items() result but will still cause that operation to be found if it matches the "paths" constraint).',
+          'Real member or cached item. This is an implementation detail of a performance optimization (for queries with a "paths" constraint), and private to the API module. Other modules must not touch this. VERSIONCONTROL_OPERATION_MEMBER_ITEM is the standard value and makes up for most entries in here, whereas VERSIONCONTROL_OPERATION_CACHED_AFFECTED_ITEM is the optimization (denoting an item that is not part of a VersioncontrolOperation::getItems() result but will still cause that operation to be found if it matches the "paths" constraint).',
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
@@ -304,7 +312,7 @@ function versioncontrol_schema() {
       ),
       'type' => array(
         'description' =>
-          'Specifies whether the item is a file or directory, and whether it exists or is deleted. Deleted items might exist for real, such as in CVS repositories (the "Attic") or they might just be recorded as part of a commit operation where the item was deleted, even though the version control system does not know about this revision. In Version Control API, deleted items only exist for display purposes, backends are expected not to retrieve information about them other than item history. Possible values for the item type are VERSIONCONTROL_ITEM_FILE, VERSIONCONTROL_ITEM_FILE_DELETED, VERSIONCONTROL_ITEM_DIRECTORY and VERSIONCONTROL_ITEM_DIRECTORY_DELETED. Usually though, API users should only use the functions versioncontrol_is_file_item(), versioncontrol_is_directory_item() and versioncontrol_is_deleted_item() for testing these constants.',
+          'Specifies whether the item is a file or directory, and whether it exists or is deleted. Deleted items might exist for real, such as in CVS repositories (the "Attic") or they might just be recorded as part of a commit operation where the item was deleted, even though the version control system does not know about this revision. In Version Control API, deleted items only exist for display purposes, backends are expected not to retrieve information about them other than item history. Possible values for the item type are VERSIONCONTROL_ITEM_FILE, VERSIONCONTROL_ITEM_FILE_DELETED, VERSIONCONTROL_ITEM_DIRECTORY and VERSIONCONTROL_ITEM_DIRECTORY_DELETED. Usually though, API users should only use the functions VersioncontrolItem::isFile(), VersioncontrolItem::isDirectory() and VersioncontrolItem::isDeleted() for testing these constants.',
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
@@ -361,13 +369,6 @@ function versioncontrol_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'url_backend' => array(
-        'description' => 'Repository URL backend. Intended to be pluggable, but for now this is hardcoded to "versioncontrol_default_urls" (which uses the values in the {versioncontrol_repository_urls} table).',
-        'type' => 'varchar',
-        'length' => 64,
-        'not null' => TRUE,
-        'default' => '',
-      ),
       'data' => array(
         'description' => t('A serialized array of additional per-repository settings, mostly populated by third-party modules.'),
         'type' => 'text',
@@ -378,68 +379,6 @@ function versioncontrol_schema() {
     ),
     'unique keys' => array(
       'name' => array('name'),
-    ),
-    'primary key' => array('repo_id'),
-  );
-
-  $schema['versioncontrol_repository_urls'] = array(
-    'description' =>
-      'Repository URLs for repositories using the "versioncontrol_default_urls" backend. (Until the URL backend is made pluggable, all repositories will be using this default backend.)',
-    'fields' => array(
-      'repo_id' => array(
-        'description' => 'Foreign key (referring to {versioncontrol_repositories}.repo_id) for the repository that uses these URLs.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'commit_view' => array(
-        'description' => 'The URL of the repository viewer that displays a given commit in the repository. "%revision" is used as placeholder for the revision/commit/changeset identifier.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'file_log_view' => array(
-        'description' =>
-          'The URL of the repository viewer that displays the commit log of a given file in the repository. "%path" is used as placeholder for the file path, "%revision" will be replaced by the file-level revision (the one in {versioncontrol_item_revisions}.revision), and "%branch" will be replaced by the branch name that the file is on.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'file_view' => array(
-        'description' =>
-          'The URL of the repository viewer that displays the contents of a given file in the repository. "%path" is used as placeholder for the file path, "%revision" will be replaced by the file-level revision (the one in {versioncontrol_item_revisions}.revision), and "%branch" will be replaced by the branch name that the file is on.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'directory_view' => array(
-        'description' =>
-          'The URL of the repository viewer that displays the contents of a given directory in the repository. "%path" is used as placeholder for the directory path, "%revision" will be replaced by the file-level revision (the one in {versioncontrol_item_revisions}.revision - only makes sense if directories are versioned, of course), and "%branch" will be replaced by the branch name that the directory is on.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'diff' => array(
-        'description' =>
-          'The URL of the repository viewer that displays the diff between two given files in the repository. "%path" and "%old-path" are used as placeholders for the new and old paths (for some version control systems, like CVS, those paths will always be the same). "%new-revision" and "%old-revision" will be replaced by the respective file-level revisions (from {versioncontrol_item_revisions}.revision), and "%branch" will be replaced by the branch name that the file is on.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'tracker' => array(
-        'description' =>
-          'The URL of the issue tracker that displays the issue/case/bug page of an issue id which presumably has been mentioned in a commit message. As issue tracker URLs are likely specific to each repository, this is also a per-repository setting. (Although... maybe it would make sense to have per-project rather than per-repository. Oh well.)',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
     ),
     'primary key' => array('repo_id'),
   );
@@ -643,6 +582,50 @@ function versioncontrol_update_6102() {
     'success' => TRUE,
     'query' => 'Deleted the global "versioncontrol_allow_unauthorized_access" variable, and migrated it to be a per-repository setting.',
   );
+
+  return $ret;
+}
+
+/**
+ * Update 6300 (from 6.x-2.0 to 6.x-3.0):
+ * Adding author and commiter instead of only username
+ * Move urls to data array.
+ * Drop url_backend field from repo table
+ */
+function versioncontrol_update_6300() {
+  $ret = array();
+
+  // author and committer
+  $author_spec = array(
+    'description' => 'VCS specific username of the user who is the original author of this operation. For centralized version control systems this and committer are the same.',
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  $committer_spec = array(
+    'description' => 'VCS specific username of the user who executed this operation. For distributed version control systems, this should be the author, not the committer. For centralized version control systems this and author are the same.',
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  db_change_field($ret, 'versioncontrol_operations', 'username', 'author', $author_spec);
+  db_add_field($ret, 'versioncontrol_operations', 'committer', $committer_spec);
+
+  // urls to data array
+  $repos = VersioncontrolRepositoryCache::getInstance()->getAllRepositories();
+  $result = db_query('SELECT * FROM {versioncontrol_repository_urls}');
+  while ($urls = db_fetch_array($result)) {
+    $repo_id = $urls['repo_id'];
+    unset($urls['repo_id']);
+    $repos[$repo_id]->data['versioncontrol']['url_handler'] = new VersioncontrolRepositoryUrlHandler($repos[$repo_id], $urls);
+    $repos[$repo_id]->update();
+  }
+  db_drop_table($ret, 'versioncontrol_repository_urls');
+
+  // no more url backend
+  db_drop_field($ret, 'versioncontrol_repositories', 'url_backend');
 
   return $ret;
 }

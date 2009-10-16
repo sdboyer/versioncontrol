@@ -15,7 +15,7 @@
 function commit_restrictions_form_alter(&$form, &$form_state, $form_id) {
   if ($form['#id'] == 'versioncontrol-repository-form') {
     $backends = versioncontrol_get_backends();
-    $backend_capabilities = $backends[$form['#vcs']]['capabilities'];
+    $backend_capabilities = $backends[$form['#vcs']]->capabilities;
     $restrictions = array();
 
     if (isset($form['#repository']) && !empty($form['#repository']['data']['commit_restrictions'])) {
@@ -115,10 +115,10 @@ function commit_restrictions_versioncontrol_repository_submit(&$repository, $for
   }
 
   if (empty($restrictions)) {
-    unset($repository['data']['commit_restrictions']);
+    unset($repository->data['commit_restrictions']);
   }
   else {
-    $repository['data']['commit_restrictions'] = $restrictions;
+    $repository->data['commit_restrictions'] = $restrictions;
   }
 }
 
@@ -194,7 +194,7 @@ function _commit_restrictions_commit_item_access($operation_items, $restrictions
       $always_allow = FALSE;
 
       foreach ($restrictions['allowed_paths'] as $allowed_path_regexp) {
-        if (versioncontrol_preg_item_match($allowed_path_regexp, $item)) {
+        if ($item->pregMatch($allowed_path_regexp)) {
           $always_allow = TRUE;
           break; // ok, this item is fine, next one
         }
@@ -224,7 +224,7 @@ function _commit_restrictions_commit_item_access($operation_items, $restrictions
   if (!empty($restrictions['forbidden_paths'])) {
     foreach ($operation_items as $item) {
       foreach ($restrictions['forbidden_paths'] as $forbidden_path_regexp) {
-        if (!versioncontrol_preg_item_match($forbidden_path_regexp, $item)) {
+        if (!$item->pregMatch($forbidden_path_regexp)) {
           $error_messages[] = _commit_restrictions_item_error_message($item, 'commit');
         }
       }
@@ -249,7 +249,7 @@ function _commit_restrictions_label_access($operation, $restrictions) {
 
   // This code will work for both branches and tags, given some preset values.
   $labelinfos = array(
-    VERSIONCONTROL_OPERATION_BRANCH => array(
+    VERSIONCONTROL_LABEL_BRANCH => array(
       'valid_restrictions' => $valid_branches,
       'other_restrictions' => $valid_tags,
       'simple_error' => t('** ERROR: the !labelname branch is not allowed in this repository.'),
@@ -257,7 +257,7 @@ function _commit_restrictions_label_access($operation, $restrictions) {
 '** ERROR: "!labelname" is a valid name for a tag, but not for a branch.
 ** You must either create a tag with this name, or choose a valid branch name.'),
     ),
-    VERSIONCONTROL_OPERATION_TAG => array(
+    VERSIONCONTROL_LABEL_TAG => array(
       'valid_restrictions' => $valid_tags,
       'other_restrictions' => $valid_branches,
       'simple_error' => '** ERROR: the !labelname tag is not allowed in this repository.',
@@ -335,7 +335,7 @@ function _commit_restrictions_branch_tag_item_access($items, $restrictions) {
       $valid = FALSE;
 
       foreach ($restrictions['valid_branch_tag_paths'] as $valid_path_regexp) {
-        if (versioncontrol_preg_item_match($valid_path_regexp, $item)) {
+        if ($item->pregMatch($valid_path_regexp)) {
           $valid = TRUE;
           break;
         }
@@ -349,7 +349,7 @@ function _commit_restrictions_branch_tag_item_access($items, $restrictions) {
 }
 
 function _commit_restrictions_item_error_message($item, $message_type) {
-  $itemtype = versioncontrol_is_file_item($item) ? t('file') : t('directory');
+  $itemtype = $item->isFile() ? t('file') : t('directory');
   $params = array('!itemtype' => $itemtype, '!path' => $item['path']);
 
   switch ($message_type) {

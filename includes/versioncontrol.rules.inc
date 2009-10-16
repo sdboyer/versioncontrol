@@ -21,7 +21,7 @@ function versioncontrol_token_list($type = 'all') {
 
   if ($type == 'versioncontrol_repository' || $type == 'all') {
     $repo_name_mapping = array();
-    foreach (versioncontrol_get_repositories() as $repo_id => $repository) {
+    foreach (VersioncontrolRepositoryCache::getInstance()->getRepositories() as $repo_id => $repository) {
       $repo_name_mapping[] = t('!id for @repo-name', array(
         '!id' => $repo_id,
         '@repo-name' => $repository['name'],
@@ -30,7 +30,7 @@ function versioncontrol_token_list($type = 'all') {
 
     $vcs_mapping = array();
     foreach (versioncontrol_get_backends() as $vcs => $backend) {
-      $vcs_mapping[$vcs] = check_plain($backend['name']);
+      $vcs_mapping[$vcs] = check_plain($backend->name);
     }
 
     $tokens['versioncontrol repository'] = array(
@@ -68,25 +68,24 @@ function versioncontrol_token_values($type, $object = NULL) {
   switch ($type) {
     case 'versioncontrol_repository':
       $repository = $object;
-      $backend = versioncontrol_get_backend($repository['vcs']);
       $values = array(
         'id' => $repository['repo_id'],
-        'name' => check_plain($repository['name']),
-        'vcs' => check_plain($repository['vcs']),
-        'vcs-name' => check_plain($backend['name']),
-        'root' => check_plain($backend['root']),
+        'name' => check_plain($repository->name),
+        'vcs' => check_plain($repository->vcs),
+        'vcs-name' => check_plain($repository->backend->name),
+        'root' => check_plain($repository->root),
       );
       break;
     case 'versioncontrol_operation':
       $operation = $object;
       $values = array(
-        'id' => $operation['vc_op_id'],
-        'revision' => $operation['revision'],
-        'vcs-user' => check_plain($operation['username']),
-        'vcs-user-raw' => $operation['username'],
-        'message' => check_plain($operation['message']),
-        'message-raw' => $operation['message'],
-        'date' => format_date($operation['date'],
+        'id' => $operation->vc_op_id,
+        'revision' => $operation->revision,
+        'vcs-user' => check_plain($operation->username),
+        'vcs-user-raw' => $operation->username,
+        'message' => check_plain($operation->message),
+        'message-raw' => $operation->message,
+        'date' => format_date($operation->date,
           'short', '', variable_get('date_default_timezone', 0)
         ),
       );
@@ -135,18 +134,18 @@ function versioncontrol_rules_data_type_info() {
 class versioncontrol_data_type_repository extends rules_data_type {
   function save() {
     $repository = &$this->get();
-    $repository_urls = _versioncontrol_get_repository_urls($repository);
-    versioncontrol_update_repository($repository);
+    $repository_urls = $repository->getUrlHandler()->urls;
+    $repository->update();
     return TRUE;
   }
 
   function load($repo_id) {
-    return versioncontrol_get_repository($repo_id);
+    return VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
   }
 
   function get_identifier() {
     $repository = &$this->get();
-    return $repository['repo_id'];
+    return $repository->repo_id;
   }
 }
 
@@ -155,7 +154,7 @@ class versioncontrol_data_type_repository extends rules_data_type {
  */
 class versioncontrol_data_type_operation extends rules_data_type {
   function load($vc_op_id) {
-    $operations = versioncontrol_get_operations(array('vc_op_ids' => array($vc_op_id)));
+    $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('vc_op_ids' => array($vc_op_id)));
     return empty($operations) ? FALSE : reset($operation); // first (only) element
   }
 
@@ -281,7 +280,7 @@ function versioncontrol_condition_repository($repository, $settings) {
 
 function versioncontrol_condition_repository_form($settings, &$form) {
   $repository_options = array();
-  foreach (versioncontrol_get_repositories() as $repo_id => $repository) {
+  foreach (VersioncontrolRepositoryCache::getInstance()->getRepositories() as $repo_id => $repository) {
     $repository_options[$repo_id] = check_plain($repository['name']);
   }
 
@@ -316,7 +315,7 @@ function versioncontrol_condition_item_paths($items, $settings) {
     }
     // Here comes the actual comparison.
     foreach ($settings['path_regexps'] as $path_regexp) {
-      if (versioncontrol_preg_item_match($path_regexp, $item)) {
+      if ($item->pregMatch($path_regexp)) {
         if ($all_items_required) { // 'AND' mode: this item is ok, next one
           $item_matches = TRUE;
           break;

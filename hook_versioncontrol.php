@@ -99,8 +99,8 @@
  *   - 'item_revision_id': Identifier of this item revision in the database.
  *        Note that you can only rely on this element to exist for
  *        operation items - functions that interface directly with the VCS
- *        (such as versioncontrol_get_directory_contents() or
- *        versioncontrol_get_parallel_items()) might not include
+ *        (such as VersioncontrolItem::getDirectoryContents() or
+ *        VersioncontrolItem::getParallelItems()) might not include
  *        this identifier, for obvious reasons.
  *
  *   For commit operations, additional information about the origin of
@@ -244,7 +244,7 @@ function hook_versioncontrol_operation_labels($op, $operation, $labels) {
  * @param $operation_items
  *   A structured array containing the exact details of what is about to happen
  *   to each item in this commit. The structure of this array is the same as
- *   the return value of versioncontrol_get_operation_items() - that is,
+ *   the return value of VersioncontrolOperation::getItems() - that is,
  *   elements for 'type', 'path' and 'revision' - but doesn't include
  *   the 'item_revision_id' element as there's no relation to the database yet.
  *
@@ -267,12 +267,10 @@ function hook_versioncontrol_write_access($operation, $operation_items) {
     $user = user_load(array('uid' => $operation['uid']));
   }
   if (!$user) {
-    $backend = versioncontrol_get_backend($operation['repository']);
-
     $error_message = t(
 "** ERROR: no Drupal user matches !vcs user '!user'.
 ** Please contact a !vcs administrator for help.",
-      array('!vcs' => $backend['name'], '!user' => $operation['username'])
+      array('!vcs' => $operation->repository->backend->name, '!user' => $operation->committer)
     );
     return array($error_message); // disallow the commit with an explanation
   }
@@ -291,12 +289,12 @@ function hook_versioncontrol_write_access($operation, $operation_items) {
 
   // Restrict disallowed branches and tags.
   $valid_labels = array(
-    VERSIONCONTROL_OPERATION_BRANCH => array('@^HEAD$@', '@^DRUPAL-5(--[2-9])?$@', '@^DRUPAL-6--[1-9]$@'),
-    VERSIONCONTROL_OPERATION_TAG => array('@^DRUPAL-[56]--(\d+)-(\d+)(-[A-Z0-9]+)?$@'),
+    VERSIONCONTROL_LABEL_BRANCH => array('@^HEAD$@', '@^DRUPAL-5(--[2-9])?$@', '@^DRUPAL-6--[1-9]$@'),
+    VERSIONCONTROL_LABEL_TAG => array('@^DRUPAL-[56]--(\d+)-(\d+)(-[A-Z0-9]+)?$@'),
   );
 
   foreach ($operation['labels'] as $label) {
-    if ($label['type'] == VERSIONCONTROL_OPERATION_TAG
+    if ($label['type'] == VERSIONCONTROL_LABEL_TAG
         && $label['action'] == VERSIONCONTROL_ACTION_DELETED) {
       continue; // no restrictions, even invalid tags should be allowed to be deleted
     }
@@ -314,7 +312,7 @@ function hook_versioncontrol_write_access($operation, $operation_items) {
       // No regexps match this label, so deny it.
       $error_messages[] = t('** ERROR: the !name !labeltype is not allowed in this repository.', array(
         '!name' => $label['name'],
-        '!labeltype' => ($label['type'] == VERSIONCONTROL_OPERATION_BRANCH)
+        '!labeltype' => ($label['type'] == VERSIONCONTROL_LABEL_BRANCH)
                         ? t('branch')
                         : t('tag'),
       ));
@@ -387,8 +385,6 @@ function hook_versioncontrol_repository_submit(&$repository, $form, $form_state)
  *        authorization method, that is, how users may register accounts
  *        in this repository. Modules can provide their own methods
  *        by implementing hook_versioncontrol_authorization_methods().
- *   - 'url_backend': The prefix (excluding the trailing underscore)
- *        for URL backend retrieval functions.
  *   - 'data': An array where modules can store additional information about
  *        the repository, for settings or other data.
  *   - '[xxx]_specific': An array of VCS specific additional repository
@@ -529,7 +525,7 @@ function hook_versioncontrol_is_account_authorized($repository, $uid) {
  *
  * @param $accounts
  *   The accounts that would normally be displayed, in the same format as the
- *   return value of versioncontrol_get_accounts(). Entries in this list
+ *   return value of VersioncontrolAccountCache::getInstance()->getAccounts(). Entries in this list
  *   may be unset by this filter function.
  *
  * @ingroup Accounts
@@ -640,7 +636,7 @@ function hook_versioncontrol_account($op, $uid, $username, $repository, $additio
 
       db_query("DELETE FROM {mymodule_karma} WHERE uid = %d", $uid);
       db_query("INSERT INTO {mymodule_karma} (uid, karma) VALUES (%d, %d)",
-               $uid, $mymodule_data['karma']);
+          $uid, $mymodule_data['karma']);
       break;
 
     case 'delete':
@@ -656,7 +652,7 @@ function hook_versioncontrol_account($op, $uid, $username, $repository, $additio
  *
  * @param $accounts
  *   The list of accounts that is being displayed in the account table. This is
- *   a structured array like the one returned by versioncontrol_get_accounts().
+ *   a structured array like the one returned by VersioncontrolAccountCache::getInstance()->getAccounts().
  * @param $repositories
  *   An array of repositories where the given users have a VCS account.
  *   Array keys are the repository ids, and array values are the

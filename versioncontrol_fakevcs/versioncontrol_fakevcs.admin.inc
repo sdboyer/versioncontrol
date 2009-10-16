@@ -22,7 +22,7 @@ function versioncontrol_fakevcs_form_alter(&$form, $form_state, $form_id) {
   if ($form['#id'] == 'versioncontrol-repository-form' && $form['#vcs'] == 'fakevcs') {
     versioncontrol_fakevcs_repository_admin_form_alter($form, $form_state, $form_id);
   }
-  else if ($form['#id'] == 'versioncontrol-account-form' && $form['#vcs'] == 'fakevcs') {
+  elseif ($form['#id'] == 'versioncontrol-account-form' && $form['#vcs'] == 'fakevcs') {
     versioncontrol_fakevcs_account_form_alter($form, $form_state, $form_id);
   }
 }
@@ -139,7 +139,7 @@ function versioncontrol_fakevcs_account_form_validate($form, &$form_state) {
   if (!empty($form['#original_username']) && empty($form_state['values']['account_password'])) {
     return; // The (existing) user didn't change the password.
   }
-  else if (drupal_strlen($form_state['values']['account_password']) < VERSIONCONTROL_FAKEVCS_MIN_PASSWORD_LENGTH) {
+  elseif (drupal_strlen($form_state['values']['account_password']) < VERSIONCONTROL_FAKEVCS_MIN_PASSWORD_LENGTH) {
     form_set_error('account_password', t('The FakeVCS password you have chosen is too short (it must be at least !min characters long).', array('!min' => VERSIONCONTROL_FAKEVCS_MIN_PASSWORD_LENGTH)));
   }
 }

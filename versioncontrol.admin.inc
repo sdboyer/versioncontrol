@@ -12,6 +12,11 @@
  * Copyright 2007, 2008, 2009 by Jakob Petsovits ("jpetso", http://drupal.org/user/56020)
  */
 
+//TODO: define if we want to do the load each time, per use, or all-in-one like views.inc
+require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
+require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolRepository.php';
+require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolOperation.php';
+
 /**
  * Form callback for "admin/project/versioncontrol-settings/general":
  * Provide a form for settings of Version Control API itself.
@@ -95,7 +100,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
   while ($repo_id = db_result($result)) {
     $repo_ids[] = $repo_id;
   }
-  $repositories = versioncontrol_get_repositories(array('repo_ids' => $repo_ids));
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('repo_ids' => $repo_ids));
 
   $filter_form = versioncontrol_admin_account_list_filter_form($form_state, $repositories);
   $filter_form['#id'] = 'versioncontrol-account-filter-form';
@@ -112,7 +117,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
   ));
 
   // Filter the list of accounts.
-  $accounts = versioncontrol_get_accounts(array(), TRUE);
+  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array(), TRUE);
 
   foreach (module_implements('versioncontrol_filter_accounts') as $module) {
     $function = $module .'_versioncontrol_filter_accounts';
@@ -139,7 +144,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
   }
 
   // Retrieve total, first and last commits of each user.
-  $statistics = versioncontrol_get_operation_statistics(array(
+  $statistics = VersioncontrolOperationCache::getInstance()->getStatistics(array(
     'types' => array(VERSIONCONTROL_OPERATION_COMMIT),
     'uids' => array_keys($users),
   ), array(
@@ -172,12 +177,12 @@ function versioncontrol_admin_account_list_form(&$form_state) {
 
     // Present a list of all VCS usernames and the repository where they're in.
     $repo_usernames = array();
-    foreach ($usernames_by_repository as $repo_id => $username) {
+    foreach ($usernames_by_repository as $repo_id => $account) {
       if (!isset($repositories[$repo_id])) { // happens if the backend isn't loaded
         continue;
       }
       $formatted_username = theme('versioncontrol_account_username',
-        $uid, $username, $repositories[$repo_id],
+        $uid, $account->vcs_username, $repositories[$repo_id],
         array('prefer_drupal_username' => FALSE)
       );
       $repo_name = module_exists('commitlog')
@@ -188,7 +193,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
         '!username' => $formatted_username,
         '!repository' => $repo_name,
         '!edit' => l(t('edit'),
-          'user/'. $uid .'/edit/versioncontrol/'. $repo_id .'/'. drupal_urlencode($username)
+          'user/'. $uid .'/edit/versioncontrol/'. $repo_id .'/'. drupal_urlencode($account->vcs_username)
         ),
       ));
     }
@@ -302,7 +307,7 @@ function versioncontrol_admin_account_list_filter_form_submit($form, &$form_stat
  *
  * @param $accounts
  *   The accounts that would normally be displayed, in the same format as the
- *   return value of versioncontrol_get_accounts(). Entries in this list
+ *   return value of VersioncontrolAccountCache::getInstance()->getAccounts(). Entries in this list
  *   may be unset by this filter function.
  */
 function versioncontrol_versioncontrol_filter_accounts(&$accounts) {
@@ -341,11 +346,12 @@ function versioncontrol_admin_account_import_form(&$form_state) {
   $selected_backends = array();
 
   foreach (versioncontrol_get_backends() as $vcs => $backend) {
-    if (versioncontrol_backend_implements($vcs, 'import_accounts')) {
+    $repo = new $backend->classes['repo'](0, array(), FALSE);
+    if ($repo instanceof VersioncontrolRepositoryImportExport) {
       $selected_backends[] = $vcs;
     }
   }
-  $repositories = versioncontrol_get_repositories(array('vcs' => $selected_backends));
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('vcs' => $selected_backends));
 
   if (empty($repositories)) {
     $form['no_repositories'] = array(
@@ -393,20 +399,18 @@ function versioncontrol_admin_account_import_form(&$form_state) {
  * Only actually validates that the repo backend is correctly configured.
  */
 function versioncontrol_admin_account_import_form_validate($form, &$form_state) {
-  if (is_null(versioncontrol_get_repository($form_state['values']['repo_id']))) {
+  if (is_null(VersioncontrolRepositoryCache::getInstance()->getRepository($form_state['values']['repo_id']))) {
     form_error($form['data'], t('The selected repository could not be found.'));
   }
 }
 
 /**
  * Submit handler for the "select repository to import" form from above:
- * Call the [vcs_backend]_admin_import_accounts() with the given data.
+ * Call the repo::importAccounts() with the given data.
  */
 function versioncontrol_admin_account_import_form_submit($form, &$form_state) {
-  $repository = versioncontrol_get_repository($form_state['values']['repo_id']);
-  _versioncontrol_call_backend($repository['vcs'], 'import_accounts', array(
-    $repository, $form_state['values']['data']
-  ));
+  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($form_state['values']['repo_id']);
+  $repository->importAccounts($form_state['values']['data']);
 }
 
 
@@ -416,13 +420,13 @@ function versioncontrol_admin_account_import_form_submit($form, &$form_state) {
  * password file format.
  */
 function versioncontrol_admin_account_export_page($repository) {
-  if (!versioncontrol_backend_implements($repository['vcs'], 'export_accounts')) {
+  if (!$repository instanceof VersioncontrolRepositoryImportExport) {
     drupal_not_found();
     return;
   }
 
   // The repository has already been selected, export the accounts.
-  $data = versioncontrol_export_accounts($repository);
+  $data = $repository->exportAccounts();
 
   if (arg(5) == 'plaintext') {
     drupal_set_header('Content-Type: text/plain; charset=utf-8');
@@ -445,11 +449,12 @@ function versioncontrol_admin_account_export_form(&$form_state) {
   $selected_backends = array();
 
   foreach (versioncontrol_get_backends() as $vcs => $backend) {
-    if (versioncontrol_backend_implements($vcs, 'export_accounts')) {
+    $repo = new $backend->classes['repo'](0, array(), FALSE);
+    if ($repo instanceof VersioncontrolRepositoryImportExport) {
       $selected_backends[] = $vcs;
     }
   }
-  $repositories = versioncontrol_get_repositories(array('vcs' => $selected_backends));
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('vcs' => $selected_backends));
 
   if (empty($repositories)) {
     $form['no_repositories'] = array(
@@ -517,11 +522,10 @@ function versioncontrol_admin_account_export_form_submit($form, &$form_state) {
 function versioncontrol_admin_account_export_display_form(&$form_state, $repository, $data) {
   $form = array();
   $form['#repo_id'] = $repository['repo_id'];
-  $backend = versioncontrol_get_backend($repository);
 
   $form['data'] = array(
     '#type' => 'textarea',
-    '#title' => t('@vcs account data', array('@vcs' => $backend['name'])),
+    '#title' => t('@vcs account data', array('@vcs' => $repository->backend->name)),
     '#description' => t('The exported account data. You can copy this to the config file that contains the @vcs accounts.', array('@vcs' => $backend['name'])),
     '#default_value' => $data,
     '#cols' => 70,
@@ -538,7 +542,7 @@ function versioncontrol_admin_account_export_display_form(&$form_state, $reposit
 function versioncontrol_admin_repository_list(&$form_state) {
   $form = array();
   $backends = versioncontrol_get_backends();
-  $repositories = versioncontrol_get_repositories();
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories();
 
   if (empty($repositories)) {
     $form['empty'] = array(
@@ -563,7 +567,7 @@ function versioncontrol_admin_repository_list(&$form_state) {
   // Construct the form elements for each VCS separately.
   foreach ($repositories_by_backend as $vcs => $vcs_repositories) {
     $header = $header_template;
-    $title = t('@vcs repositories', array('@vcs' => $backends[$vcs]['name']));
+    $title = t('@vcs repositories', array('@vcs' => $backends[$vcs]->name));
     $form[$vcs] = array(
       '#value' => '<h4>'. $title .'</h4>',
     );
@@ -577,6 +581,7 @@ function versioncontrol_admin_repository_list(&$form_state) {
       );
     }
     // Provide a possibility for backends and other modules to modify the list.
+    // TODO replace with drupal_alter()
     foreach (module_implements('versioncontrol_alter_repository_list') as $module) {
       $function = $module .'_versioncontrol_alter_repository_list';
       $function($vcs, $vcs_repositories, $header, $rows_by_repo_id);
@@ -666,8 +671,8 @@ function versioncontrol_admin_repository_edit(&$form_state, $repository, $vcs = 
     '#maxlength' => 255,
   );
 
-  if ($repository_exists && isset($repository['data']['versioncontrol']['registration_message'])) {
-    $current_registration_message = $repository['data']['versioncontrol']['registration_message'];
+  if ($repository_exists && isset($repository->data['versioncontrol']['registration_message'])) {
+    $current_registration_message = $repository->data['versioncontrol']['registration_message'];
   }
   else {
     $presets = _versioncontrol_get_string_presets();
@@ -713,7 +718,7 @@ function versioncontrol_admin_repository_edit(&$form_state, $repository, $vcs = 
       '#type' => 'fieldset',
       '#title' => t('Commit restrictions'),
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+     '#collapsed' => TRUE,
       '#weight' => 6,
     );
     $form['commit_restrictions']['allow_unauthorized_access'] = array(
@@ -721,14 +726,14 @@ function versioncontrol_admin_repository_edit(&$form_state, $repository, $vcs = 
       '#title' => t('Allow repository access to unknown or unauthorized committers'),
       '#description' => 'If this is enabled, users can commit to this repository even if no association of the VCS account to the Drupal user is known (assuming that no other commit restrictions apply). If it is disabled, only known and authorized users may commit. This setting only works if the appropriate pre-commit/pre-branch/pre-tag hook script is set up for this repository.',
       '#default_value' => $repository_exists
-                          ? $repository['data']['versioncontrol']['allow_unauthorized_access']
+                          ? $repository->data['versioncontrol']['allow_unauthorized_access']
                           : FALSE,
       '#weight' => 0,
     );
   }
 
   if ($repository_exists) {
-    $repo_urls = _versioncontrol_get_repository_urls($repository);
+    $repo_urls = $repository->getUrlHandler()->urls;
   }
 
   $form['repository_urls'] = array(
@@ -803,7 +808,7 @@ function versioncontrol_admin_repository_edit_validate($form, &$form_state) {
   if (!empty($form['#repository']) && $form_state['values']['repo_name'] == $form['#original_name']) {
     return;
   }
-  $same_repositories = versioncontrol_get_repositories(array(
+  $same_repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
     'names' => array($form_state['values']['repo_name']),
   ));
   if (!empty($same_repositories)) {
@@ -818,33 +823,42 @@ function versioncontrol_admin_repository_edit_validate($form, &$form_state) {
  * Add or update the repository when the add/edit form is submitted.
  */
 function versioncontrol_admin_repository_edit_submit($form, &$form_state) {
+  $repository_urls = array();
+  $repository_url_keys = array_keys(VersioncontrolRepositoryUrlHandler::getEmpty());
+  foreach ($repository_url_keys as $key) {
+    $repository_urls[$key] = $form_state['values'][$key];
+  }
+
   // Take the existing repository and modify it with the given form values,
   // or construct a new one altogether.
-  $repository = isset($form['#repository']) ? $form['#repository'] : array(
-    'vcs' => $form['#vcs'],
-    'url_backend' => 'versioncontrol_default_urls', // hardcoded for now
-    'data' => array(),
-  );
+  if (isset($form['#repository'])) {
+    $repository = $form['#repository'];
+    $repository->name                 = $form_state['values']['repo_name'];
+    $repository->root                 = $form_state['values']['root'];
+    $repository->authorization_method = $form_state['values']['authorization_method'];
+  }
+  else {
+    $backends = versioncontrol_get_backends();
+    $repository = array(
+      'name' => $form_state['values']['repo_name'],
+      'vcs' => $form['#vcs'],
+      'root' => $form_state['values']['root'],
+      'authorization_method' => $form_state['values']['authorization_method'],
+      'backend' => $backends[$form['#vcs']],
+    );
+    $repository = new $backends[$form['#vcs']]->classes['repo'](null, $repository, FALSE);
+  }
 
-  $repository['name']                   = $form_state['values']['repo_name'];
-  $repository['root']                   = $form_state['values']['root'];
-  $repository['authorization_method']   = $form_state['values']['authorization_method'];
-  $repository['data']['versioncontrol'] = array(
+  // We also provide a 'data' array where other modules can put their own
+  // per-repository data that doesn't need to be stored in a separate db column.
+  $repository->data['versioncontrol'] = array(
     'registration_message' => $form_state['values']['registration_message'],
+    'url_handler'          => new VersioncontrolRepositoryUrlHandler($repository, $repository_urls),
   );
 
   if (isset($form_state['values']['allow_unauthorized_access'])) {
-    $repository['data']['versioncontrol']['allow_unauthorized_access'] =
+    $repository->data['versioncontrol']['allow_unauthorized_access'] =
       (bool) $form_state['values']['allow_unauthorized_access'];
-  }
-
-  $repository_urls = array();
-  $repository_url_keys = array(
-    'commit_view', 'file_log_view', 'file_view', 'directory_view',
-    'diff', 'tracker'
-  );
-  foreach ($repository_url_keys as $key) {
-    $repository_urls[$key] = $form_state['values'][$key];
   }
 
   // Let other modules alter the repository array.
@@ -853,16 +867,16 @@ function versioncontrol_admin_repository_edit_submit($form, &$form_state) {
     $function($repository, $form, $form_state);
   }
 
-  if (!empty($repository['repo_id'])) {
-    versioncontrol_update_repository($repository, $repository_urls);
+  if (!is_null($repository->repo_id)) {
+    $repository->update();
     drupal_set_message(t('The %repository repository has been updated.', array(
-      '%repository' => $repository['name'],
+      '%repository' => $repository->name,
     )));
   }
   else {
-    $repository = versioncontrol_insert_repository($repository, $repository_urls);
+    $repository = $repository->insert();
     drupal_set_message(t('The %repository repository has been added.', array(
-      '%repository' => $repository['name']
+      '%repository' => $repository->name
     )));
   }
 
@@ -891,8 +905,8 @@ function versioncontrol_admin_repository_delete_confirm(&$form_state, $repositor
  * Delete the repository when the confirmation form is submitted.
  */
 function versioncontrol_admin_repository_delete_confirm_submit($form, &$form_state) {
-  $repository = versioncontrol_get_repository($form['#repo_id']);
-  versioncontrol_delete_repository($repository);
+  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($form['#repo_id']);
+  $repository->delete();
   drupal_set_message(t('The %repository repository has been deleted.', array(
     '%repository' => $repository['name'],
   )));

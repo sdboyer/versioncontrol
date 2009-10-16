@@ -1,0 +1,45 @@
+on code
+-------
+
+- remove fetch*() methods because with objects we can do that on demand whenever the API user needs the information.
+
+"fetch_source_items(), fetch_successor_items(), get_common_directory_path() and get_item_paths() apply to a list of items, we might consider to have a VersionControlItemList instead of a single array, in order to have it perform lazy loading and stuff. The other possibility would be to keep items in memory as a static copy, but that needs further thought."
+(review the following, got it grepping items| grep function| grep \&)
+  - versioncontrol_table_operation_items_join(&$tables)
+  - versioncontrol_fetch_source_items($repository, &$items)
+  - versioncontrol_fetch_successor_items($repository, &$items)
+  - VersioncontrolOperation::insert(&$operation_items)
+  - VersioncontrolItem::fetchCommitOperations($repository, &$items)
+
+"Example: VersionControlItem::fetchCommitOperations() (see above) can be reduced to VersionControlItem::commitOperations(), and the item object keeps track whether the commit operations have already been fetched or not (is_null($this->commitOperations))."
+
+Replace versioncontrol_backend_implements() approach with one interface per feature
+- start with the "simple" VersionControlRepositoryURLBackend interface proposed by jpetso
+
+- update documentation
+  - versioncontrol_fakevcs module
+  - hook_versioncontrol.php
+  - 73 chars to line break on comments
+
+- review operation and item classes
+  - search non-oop methods and convert them
+  - move loaders to EntityCache classes, like repo and account classes(aka cache for getEntity methods)
+- group classes in files with some criteria
+
+on design
+---------
+
+- "Still not solved: how to represent accounts that do not have an exact uid/repository/username combination."
+  - Start working on account stuff(now there are two classes: VersioncontrolVcsAccount and VersioncontrolAccount)
+  - defered until all classes stuff is done(suggested by jpetso)
+
+do not forget
+------------- 
+- we want to let other modules inherit from all of our classes
+- camelcase at conceptual boundaries
+- __USE__ gets, like php spl
+- for now  do not use SplFileInfo as a parent class for VersioncontrolItem, but maybe in near future when it's considered a need(maybe performance)
+- api class dropped, its methods would be on the module file (so. we've got backend objects. pretty easy to retrieve via discovery hook and subsequent instantiation, probably.)
+- at the beginning we should have attributes as private as possible and in the process open it as it's needed, taking more time for it before a release
+  - later discusion last week result in "use protected in all places" (but later I found exceptions like repository cache :p)
+- The future of source items in the main API module (we want them as an optional bonus instead of a log-parse-time requirement)

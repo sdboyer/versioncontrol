@@ -16,6 +16,10 @@
 // demonstrate how the various registration messages are being used.
 define('VERSIONCONTROL_REGISTER_DEMO', -1);
 
+//TODO: define if we want to do the load each time, per use, or all-in-one like views.inc
+require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
+require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolRepository.php';
+
 /**
  * Form callback for "versioncontrol/register[/$register_uid[/$register_at_repo_id]]":
  * Provide an indirection that leads to an account registration form.
@@ -46,14 +50,14 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
     return;
   }
 
-  $accounts = versioncontrol_get_accounts(array('uids' => array($register_uid)), TRUE);
-  $repositories = versioncontrol_get_repositories();
+  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($register_uid)), TRUE);
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getAllRepositories();
 
   // Construct the '#options' array.
   $account_usernames = array();
   foreach ($accounts as $uid => $usernames_by_repository) {
-    foreach ($usernames_by_repository as $repo_id => $username) {
-      $account_usernames[$repo_id][] = $username;
+    foreach ($usernames_by_repository as $repo_id => $account) {
+      $account_usernames[$repo_id][] = $account->vcs_username;
     }
   }
 
@@ -64,7 +68,7 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
   $repository_names = array();
   foreach ($repositories as $repo_id => $repository) {
     if (isset($account_usernames[$repo_id])
-        && versioncontrol_is_account_authorized($repository, $register_uid)) {
+        && $repository->isAccountAuthorized($register_uid)) {
       // We only want repositories in the list of repositories that are open
       // for registrations where no (authorized) account exists yet.
       continue;
@@ -88,7 +92,7 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
   if (count($repository_names) == 1) {
     $only_repo_id = $first_repo_id;
   }
-  else if (count($repositories) == 1) {
+  elseif (count($repositories) == 1) {
     $only_repo_id = reset(array_keys($repositories));
   }
 
@@ -109,11 +113,16 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
                   .'/'. reset($account_usernames[$repo_id]));
       // drupal_goto() calls exit() so script execution ends right here
     }
-    else if (isset($repository_names[$repo_id])) {
+    elseif (isset($repository_names[$repo_id])) {
       return drupal_get_form('versioncontrol_account_edit_form',
         $register_uid, $repositories[$repo_id], VERSIONCONTROL_FORM_CREATE
       );
     }
+  }
+
+  if (!isset($first_repo_id)) {
+    // when there are no repos, this var is not set
+    $first_repo_id = NULL;
   }
 
   return drupal_get_form('versioncontrol_account_register_form',
@@ -229,24 +238,24 @@ function versioncontrol_account_register_form_submit($form, &$form_state) {
 function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_username = NULL) {
   $selected_usernames = array();
 
-  foreach ($accounts as $only_uid => $usernames_by_repository) {
+  foreach ($accounts as $only_uid => $vcs_accounts_by_repository) {
     // The caller (menu system) ensures that there is only one uid.
     $uid = $only_uid;
 
-    foreach ($usernames_by_repository as $repo_id => $username) {
+    foreach ($vcs_accounts_by_repository as $repo_id => $vcs_account) {
       if (isset($url_repo_id) && $repo_id != $url_repo_id) {
         unset($accounts[$uid][$repo_id]);
         continue; // disregard repositories that don't match the URL constraints
       }
-      $usernames = array($username);
+      $vcs_accounts = array($vcs_account);
 
-      foreach ($usernames as $key => $username) {
-        if (isset($url_username) && $username != $url_username) {
-          unset($accounts[$uid][$repo_id]);
+      foreach ($vcs_accounts as $key => $vcs_account) {
+        if (isset($url_username) && $vcs_account->vcs_username != $url_username) {
+          unset($vcs_accounts[$uid][$repo_id]);
           continue; // disregard usernames that don't match the URL constraints
         }
         $any_repo_id = $repo_id;
-        $selected_usernames[] = $username;
+        $selected_usernames[] = $vcs_account->vcs_username;
       }
     }
   }
@@ -256,7 +265,7 @@ function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_userna
     return;
   }
   elseif (count($selected_usernames) == 1) {
-    $repository = versioncontrol_get_repository($any_repo_id);
+    $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($any_repo_id);
     return drupal_get_form('versioncontrol_account_edit_form',
       $uid, $repository, reset($selected_usernames)
     );
@@ -272,13 +281,13 @@ function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_userna
  * Show a list of VCS accounts to the admin or the user.
  *
  * @param $accounts
- *   The list of accounts to show, in versioncontrol_get_accounts() format.
+ *   The list of accounts to show, in VersioncontrolAccountCache::getInstance()->getAccounts() format.
  */
 function versioncontrol_account_list_form(&$form_state, $accounts) {
   $form = array();
   $form['#id'] = 'versioncontrol-account-list-form';
 
-  $repositories = versioncontrol_get_repositories(array(
+  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
     'repo_ids' => array_keys(reset($accounts)),
   ));
 
@@ -291,7 +300,6 @@ function versioncontrol_account_list_form(&$form_state, $accounts) {
         continue;
       }
       $usernames = array($username);
-      $backend = versioncontrol_get_backend($repositories[$repo_id]);
 
       foreach ($usernames as $username) {
         $formatted_username = theme('versioncontrol_account_username',
@@ -305,7 +313,7 @@ function versioncontrol_account_list_form(&$form_state, $accounts) {
         $rows[] = array(
           $repo_name,
           $formatted_username,
-          l(t('Edit @vcs account', array('@vcs' => $backend['name'])),
+          l(t('Edit @vcs account', array('@vcs' => $repositories[$repo_id]->backend->name)),
             'user/'. $uid .'/edit/versioncontrol/'. $repo_id .'/'. drupal_urlencode($username)
           ),
         );
@@ -336,8 +344,7 @@ function versioncontrol_account_list_form(&$form_state, $accounts) {
 function versioncontrol_account_edit_form(&$form_state, $uid, $repository, $vcs_username) {
   $form = array();
   $create_account = ($vcs_username === VERSIONCONTROL_FORM_CREATE);
-  $backends = versioncontrol_get_backends();
-  $vcs_name = $backends[$repository['vcs']]['name'];
+  $vcs_name = $repository->backend->name;
 
   $user = ($uid === VERSIONCONTROL_REGISTER_DEMO) ? FALSE : user_load($uid);
 
@@ -369,8 +376,8 @@ function versioncontrol_account_edit_form(&$form_state, $uid, $repository, $vcs_
   $form['#submit'] = array('versioncontrol_account_edit_form_submit');
 
   if ($create_account) {
-    $registration_message = isset($repository['data']['versioncontrol']['registration_message'])
-      ? $repository['data']['versioncontrol']['registration_message']
+    $registration_message = isset($repository->data['versioncontrol']['registration_message'])
+      ? $repository->data['versioncontrol']['registration_message']
       : '';
 
     if (!empty($registration_message)) {
@@ -396,8 +403,9 @@ function versioncontrol_account_edit_form(&$form_state, $uid, $repository, $vcs_
 
   if ($create_account || $admin_access) {
     if ($create_account) {
+      $vcs_account = new $repository->backend->classes['account']($vcs_username, $uid, $repository);
       // Have a nice default value for the new VCS username.
-      $vcs_username = versioncontrol_account_username_suggestion($repository, $user);
+      $vcs_username = $vcs_account->usernameSuggestion($user);
     }
 
     if ($admin_access) { // the admin version
@@ -470,7 +478,8 @@ function versioncontrol_account_edit_form_validate($form, &$form_state) {
   else {
     // Check for username validity - done by the backend, but with a fallback
     // for alphanum-only characters.
-    if (!versioncontrol_is_account_username_valid($repository, $username)) {
+    $vcs_account = new $repository->backend->classes['account']($username, $uid, $repository);
+    if (!$vcs_account->isUsernameValid($username)) {
       form_set_error('account_name',
         t('The specified @vcs username is invalid.', array('@vcs' => $vcs_name))
       );
@@ -481,7 +490,7 @@ function versioncontrol_account_edit_form_validate($form, &$form_state) {
     $form_state['values']['account_name'] = $username;
 
     // Check for duplicates.
-    $existing_uid = versioncontrol_get_account_uid_for_username($repository['repo_id'], $username, TRUE);
+    $existing_uid = $repository->getAccountUidForUsername($username, TRUE);
     if ($existing_uid && $uid != $existing_uid) {
       if ($existing_user = user_load(array('uid' => $existing_uid))) {
         $existing_username = theme('username', $existing_user);
@@ -506,7 +515,6 @@ function versioncontrol_account_edit_form_submit($form, &$form_state) {
   $username = $form_state['values']['account_name'];
   $repository = $form['#repository'];
   $vcs_name = $form['#vcs_name'];
-  $vcs_specific = NULL;
 
   // Let other modules provide additional account data.
   $additional_data = array();
@@ -516,14 +524,26 @@ function versioncontrol_account_edit_form_submit($form, &$form_state) {
   }
 
   if (empty($form['#original_username'])) {
-    versioncontrol_insert_account($repository, $uid, $username, $additional_data);
+    $vcs_account = new $repository->backend->classes['account']($username, $uid, $repository);
+    $vcs_account->insert($additional_data);
     $message = drupal_set_message(t(
       'The @vcs account %username has been registered.',
       array('@vcs' => $vcs_name, '%username' => $username)
     ));
   }
   else {
-    versioncontrol_update_account($repository, $uid, $username, $additional_data);
+    //FIXME why username are a required constraint?
+    //      uid and repo_id are the PK on the table getAccounts query
+    $constraints = array(
+      'uids' => array($uid),
+      'repo_ids' => array($repository->repo_id),
+      'usernames' => array($form['#original_username'])
+    );
+    $vcs_accounts = VersioncontrolAccountCache::getInstance()->getAccounts($constraints, TRUE);
+    // if we got an original_username we can trust on getting a value
+    $vcs_account = array_shift(array_shift($vcs_accounts));
+
+    $vcs_account->update($username, $additional_data);
 
     // Regular users cannot change the username, and will probably get
     // a message for each of the other actions that hook into the form.
@@ -537,6 +557,6 @@ function versioncontrol_account_edit_form_submit($form, &$form_state) {
 
   $form_state['redirect'] = versioncontrol_admin_access()
     ? 'admin/project/versioncontrol-accounts'
-    : 'user/'. $uid .'/edit/versioncontrol/'. $repository['repo_id']
+    : 'user/'. $uid .'/edit/versioncontrol/'. $repository->repo_id
         .'/'. drupal_urlencode($username);
 }
