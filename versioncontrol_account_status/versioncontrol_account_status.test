@@ -1,0 +1,150 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Functional test for account status module.
+ */
+
+/**
+ * Testcase for versioncontrol_account_status module.
+ */
+class VersioncontrolAccountStatusTestCase extends DrupalWebTestCase {
+
+  protected $admin_user;
+  protected $basic_user;
+  protected $repoCache;
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Version Control Account Status funcional testing'),
+      'description' => t('Functional test for account status module.'),
+      'group' => t('Version Control'),
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    // load core and fake test backend modules
+    parent::setUp('versioncontrol', 'versioncontrol_test', 'versioncontrol_account_status');
+
+    // Create our users
+    $this->admin_user = $this->drupalCreateUser(array('administer version control systems'));
+    $this->basic_user = $this->drupalCreateUser(array('use version control systems'));
+
+    $this->repoCache = VersioncontrolRepositoryCache::getInstance();
+
+    // Temporarily change the 'smtp_library' and implement drupal_mail_wrapper()
+    // Make sure our drupal_mail_wrapper function is called instead of the
+    // default mail handler.
+    variable_set('smtp_library', drupal_get_path('module', 'versioncontrol') . '/tests/mailwrap.inc');
+  }
+
+  public function testAccountStatus() {
+    $this->drupalLogin($this->admin_user);
+
+    // Create a new repository selecting "User application required" in the "Authorization method" field
+    // and enter some text in the "Account application form messages" and "Account application e-mail messages" fields.
+    $auth_method = 'versioncontrol_account_status_repository';
+    $app_presets = _versioncontrol_account_status_get_presets();
+    $motivation_desc = 'Describe what modules, themes, or translations you want to maintain and why.';
+    $repo_edit = array(
+      'repo_name' => $this->randomName(4, 'Test repo '),
+      'authorization_method' => $auth_method,
+      'versioncontrol_account_status_default_condition_description' => $app_presets['default_condition_description'] . 'mod',
+      'versioncontrol_account_status_default_condition_error' => $app_presets['default_condition_error'] . 'mod',
+      // do not use default for this because html saved to db is translate to literals(ej. &lt; instead of <)
+      'versioncontrol_account_status_motivation_description' => $motivation_desc,
+    );
+    $this->drupalPost('admin/project/versioncontrol-repositories/add-test', $repo_edit, t('Save repository'));
+
+    // get the created repo
+    $found_repositories = $this->repoCache->getRepositories( array('names' => array($repo_edit['repo_name'])) );
+    $repo = array_shift($found_repositories);
+    $this->assertTrue(!is_null($repo), t('Repository found in database.'));
+
+    // visit the repository edit form again, and make sure those texts still exist in the same text fields
+    $this->clickLink(t('Edit'));
+    $this->assertRaw($app_presets['default_condition_description'] . 'mod', t('Condition description have correct value.'));
+    $this->assertRaw($app_presets['default_condition_error'] . 'mod', t('Condition error have correct value.'));
+    $this->assertRaw($motivation_desc, t('Motivation description have correct value.'));
+    $this->drupalLogout();
+
+    // now use the less priviledged user
+    $this->drupalLogin($this->basic_user);
+
+    // Try to create a new account for this repository on the "versioncontrol/register" page
+    //TODO verify the case when there are more than one repo(to verify the use of one more form)
+    $account_edit = array(
+      'account_name' => 'cooldev', // do not use randomName, we need only simple letters
+      'motivation' => $this->randomName(50, 'My motivation..'),
+      'policy' => 1,
+    );
+
+    // Then, create an account
+    $this->drupalPost( 'versioncontrol/register', $account_edit, t('Request @repo_name account', array('@repo_name' => $repo->backend->name)) );
+
+    // make sure that the application form messages are listed there correctly.
+    $this->assertText(t('Your application has been sent to the version control administrators and will be processed as soon as possible.'), t('Account request sent successfully.'));
+    $this->assertRaw(t('The @vcs account %username has been registered.', array('@vcs' => $repo->backend->name, '%username' => $account_edit['account_name'])), t('Account registered successfully.'));
+
+    // check if the various emails get sent to the applicant and admin.
+    $admin_mail = $this->drupalGetMails(array('id' => 'versioncontrol_account_status_application_admin'));
+    $this->assertTrue(count($admin_mail)==1, t('Account creation moderator was notified by mail.'));
+    $applicant_mail = $this->drupalGetMails(array('id' => 'versioncontrol_account_status_application_applicant'));
+    $this->assertTrue(count($applicant_mail)==1, t('Account applicant was notified by mail.'));
+    // TODO verify mail contents are correct
+
+    // Try to register again to verify it is not possible
+    $this->drupalGet("user/{$this->basic_user->uid}/edit/versioncontrol/{$repo->repo_id}");
+    $this->assertText(t('Your application has been received and is currently pending review.'), t('Can not register twice in the same repository.'));
+
+    // now login again as the admin user to test account status changes
+    $this->drupalLogin($this->admin_user);
+    // queued -> pending
+    $account_edit_by_admin = array(
+      'status' => VERSIONCONTROL_ACCOUNT_STATUS_PENDING,
+      'send_admin_message' => 0,
+    );
+    $this->drupalGet("user/{$this->basic_user->uid}/edit/versioncontrol/{$repo->repo_id}");
+    $this->drupalPost($this->url, $account_edit_by_admin, t('Update @repo_name account', array('@repo_name' => $repo->backend->name)) );
+    $this->assertRaw(t('The @vcs account %username has been updated successfully.', array('@vcs' => $repo->backend->name, '%username' => $account_edit['account_name'])), t('Status successfully changed.'));
+    $account_status_user_status = db_result(db_query("SELECT status FROM {versioncontrol_account_status_users} WHERE uid = '%s' AND repo_id = '%s'", array($this->basic_user->uid, $repo->repo_id)));
+    $this->assertTrue($account_status_user_status==VERSIONCONTROL_ACCOUNT_STATUS_PENDING, t('Account status successfully changed on DB.'));
+    // TODO test all?
+    // pending -> approved
+    // approved -> declined
+    // declined -> disabled
+  }
+
+  /**
+   * Gets an array containing all e-mails sent during this test case.
+   * (taken from d7 drupal_web_test_case, hint: rm me on d7)
+   *
+   * @param $filter
+   *   An array containing key/value pairs used to filter the e-mails that are returned.
+   * @return
+   *   An array containing e-mail messages captured during the current test.
+   */
+  protected function drupalGetMails($filter = array()) {
+    $captured_emails = variable_get('simpletest_emails', array());
+    $filtered_emails = array();
+
+    foreach ($captured_emails as $message) {
+      foreach ($filter as $key => $value) {
+        if (!isset($message[$key]) || $message[$key] != $value) {
+          continue 2;
+        }
+      }
+      $filtered_emails[] = $message;
+    }
+
+    return $filtered_emails;
+  }
+
+}

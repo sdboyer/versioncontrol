@@ -1,0 +1,6 @@
+name = "Version Control Test"
+description = "Support module for Version Control core tests."
+package = Testing
+dependencies[] = versioncontrol
+version = VERSION
+core = 6.x

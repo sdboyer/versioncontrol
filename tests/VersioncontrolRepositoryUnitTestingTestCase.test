@@ -1,0 +1,67 @@
+<?php
+// $Id$
+/**
+ * @file
+ * Unit tests for repository class
+ */
+
+/**
+ * Unit tests for VersioncontrolRepository class
+ */
+class VersioncontrolRepositoryUnitTestingTestCase extends DrupalWebTestCase {
+
+  public $repoCache;
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      // FIXME
+      'name' => t('Repository class unit tests'),
+      'description' => t('Unit tests for the VersioncontrolRepository class.'),
+      'group' => t('Version Control'),
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    // load core and fake test backend modules
+    parent::setUp('versioncontrol', 'versioncontrol_test');
+    require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolRepository.php';
+    $this->repoCache = VersioncontrolRepositoryCache::getInstance();
+  }
+
+  public function testGetRepositoryEmptyParam() {
+    $repo_id = '';
+    $repository = $this->repoCache->getRepository($repo_id);
+    $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository with empty repo_id'), 'getRepository');
+  }
+
+  public function testGetRepositoryNullParam() {
+    $repo_id = NULL;
+    $repository = $this->repoCache->getRepository($repo_id);
+    $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository with a NULL repo_id'), 'getRepository');
+  }
+
+  public function testGetRepositoryNotFound() {
+    $repo_id = -1;
+    $repository = $this->repoCache->getRepository($repo_id);
+    $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository which do not exit'), 'getRepository');
+  }
+
+  public function testGetRepositoryFound() {
+    $backends = versioncontrol_get_backends();
+    $data = array(
+      'name' => 'test repository',
+      'vcs' => 'test',
+      'backend' => $backends['test'],
+    );
+    $repo = new VersioncontrolTestRepository(NULL, $data, FALSE);
+    $repo->insert();
+    $repositories = $this->repoCache->getRepositories(array('repo_id' => $repo->repo_id));
+    $this->assertTrue(is_a($repositories[$repo->repo_id], 'VersioncontrolRepository'), t('Make sure we get a valid return when passing a good repo_id.'), 'getRepository');
+  }
+}

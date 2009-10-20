@@ -1,0 +1,101 @@
+<?php
+// $Id$
+/**
+ * @file
+ * Funcional tests for repository managment.
+ */
+
+/**
+ * Funcional tests for repository managment.
+ */
+class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
+
+  protected $admin_user;
+  public $repoCache;
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Version Control Repository Management funcional testing'),
+      'description' => t('Functional test for Repository management.'),
+      'group' => t('Version Control'),
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    // load core and fake test backend modules
+    parent::setUp('versioncontrol', 'versioncontrol_test');
+
+    // Create and login the admin user
+    $this->admin_user = $this->drupalCreateUser(array('administer version control systems'));
+    $this->drupalLogin($this->admin_user);
+
+    // repository cache
+    $this->repoCache = VersioncontrolRepositoryCache::getInstance();
+  }
+
+  public function testAddRepository() {
+    // check missing name
+    $edit = array();
+    $this->drupalPost('admin/project/versioncontrol-repositories/add-test', $edit, t('Save repository'));
+    $this->assertText('Repository name field is required.', t('Name field required texfield behaves correctly.'));
+
+    // create a minimal repo
+    $edit = array(
+      'repo_name' => 'Test repo ' . $this->randomName(),
+    );
+    $this->drupalPost('admin/project/versioncontrol-repositories/add-test', $edit, t('Save repository'));
+
+    // Confirm that the repository has been created, and then query the repo name.
+    $this->assertRaw(t('The %repository repository has been added.', array('%repository' => $edit['repo_name'])), t('Repository successfully created.'));
+    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    $this->assertTrue(count($found_repositories)==1, t('Repository found in database.'));
+  }
+
+  public function testDeleteRepository() {
+    // create a minimal repo and delete it
+    $edit = array(
+      'repo_name' => 'Test repo ' . $this->randomName(),
+    );
+    $this->drupalPost('admin/project/versioncontrol-repositories/add-test', $edit, t('Save repository'));
+    $this->clickLink(t('Delete'));
+    $this->drupalPost($this->url, array(), t('Delete'));
+
+    // confirm that the repository has been deleted, and then query the repo name.
+    $this->assertRaw(t('The %repository repository has been deleted.', array('%repository' => $edit['repo_name'])), t('Repository successfully deleted.'));
+    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    $this->assertTrue(count($found_repositories)==0, t('Repository not found in database.'));
+  }
+
+  public function testEditRepository() {
+    // create a minimal repo to edit
+    $original = array(
+      'repo_name' => 'Test repo ' . $this->randomName(),
+    );
+    $this->drupalPost('admin/project/versioncontrol-repositories/add-test', $original, t('Save repository'));
+
+    // edit the repo
+    $this->clickLink(t('Edit'));
+    $edit = array(
+      'repo_name' => 'Test repo edited ' . $this->randomName(),
+      'root' => '/one/root',
+      );
+    $this->drupalPost($this->url, $edit, t('Save repository'));
+
+    // confirm that the repository has been edited, and then query the repo root
+    //TODO do i need to validate all fields?
+    $this->assertRaw(t('The %repository repository has been updated.', array('%repository' => $edit['repo_name'])), t('Repository successfully updated.'));
+    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    if ($is_repo_edited = (count($found_repositories)==1)) {
+      $edited_repo = array_shift($found_repositories);
+      $is_repo_edited = $edited_repo['root'] == $edit['root'];
+    }
+    $this->assertTrue($is_repo_edited, t('Repository updated in database.'));
+  }
+
+}
