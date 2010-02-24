@@ -151,7 +151,7 @@ abstract class VersioncontrolItem implements ArrayAccess {
    * Return TRUE if the given item is an existing or an already deleted
    * directory, or FALSE if it's not.
    */
-  public function isDirectory($item) {
+  public function isDirectory() {
     if ($this->type == VERSIONCONTROL_ITEM_DIRECTORY
       || $this->type == VERSIONCONTROL_ITEM_DIRECTORY_DELETED) {
         return TRUE;
@@ -162,7 +162,7 @@ abstract class VersioncontrolItem implements ArrayAccess {
   /**
    * Return TRUE if the given item is marked as deleted, or FALSE if it exists.
    */
-  public function isDeleted($item) {
+  public function isDeleted() {
     if ($this->type == VERSIONCONTROL_ITEM_FILE_DELETED
       || $this->type == VERSIONCONTROL_ITEM_DIRECTORY_DELETED) {
         return TRUE;
