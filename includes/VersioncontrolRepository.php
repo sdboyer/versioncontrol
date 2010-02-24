@@ -176,7 +176,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     // Execute the query.
     $result = db_query('SELECT label_id, name, type FROM {versioncontrol_labels}
                         WHERE '. $and_constraints .'
-                        ORDER BY uid', $params);
+                        ORDER BY label_id', $params);
 
     // Assemble the return value.
     $labels = array();
