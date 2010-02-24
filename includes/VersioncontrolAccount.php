@@ -212,7 +212,7 @@ abstract class VersioncontrolAccount implements ArrayAccess {
   /**
    * Let child backend account classes delete information.
    */
-  protected function _delete($additional_data) {
+  protected function _delete() {
   }
 
   //ArrayAccess interface implementation
