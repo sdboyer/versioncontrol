@@ -1,0 +1,5 @@
+// $Id$
+
+versioncontrol 6.x-2.x
+======================
+- Major rewrite of the 1.x branch in OOP
