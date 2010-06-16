@@ -74,9 +74,68 @@ define('VERSIONCONTROL_USER_ASSOCIATED_ACTIVE', 2);
 /** Used internally by the repository and account admin pages. Private constant. */
 define('VERSIONCONTROL_FORM_CREATE', FALSE);
 
-//TODO: define if we want to do the load each time, per use, or all-in-one like views.inc
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/classes.inc';
+/**
+ * Implementation of hook_autoload_info().
+ *
+ * Tell the autoload module where all our class files are. Now, no more hairy
+ * include problems!
+ */
+function versioncontrol_autoload_info() {
+  $items = array();
+
+  // Add classes in self-named files
+  $selfnamed = array(
+    'VersioncontrolAccount',
+    'VersioncontrolBackend',
+    'VersioncontrolBranch',
+    'VersioncontrolItem',
+    'VersioncontrolLabel',
+    'VersioncontrolOperation',
+    'VersioncontrolRepository',
+    'VersioncontrolTag',
+  );
+  foreach ($selfnamed as $name) {
+    $items[$name] = array(
+      'file' => "includes/$name.php",
+    );
+  }
+
+  // Add mushed together classes.inc
+  $classes = array(
+    'VersioncontrolItemParallelItems',
+    'VersioncontrolRepositoryCache',
+    'VersioncontrolAccountCache',
+    'VersioncontrolOperationCache',
+    'VersioncontrolItemDirectoryContents',
+    'VersioncontrolItemExportFile',
+    'VersioncontrolItemExportDirectory',
+    'VersioncontrolItemGetFileAnnotation',
+    'VersioncontrolRepositoryGetItem',
+    'VersioncontrolRepositoryImportExport',
+  );
+
+  foreach ($classes as $name) {
+    $items[$name] = array(
+      'file' => "includes/classes.inc",
+    );
+  }
+
+  // Add special cases
+  $items['VersioncontrolRepositoryUrlHandler'] = array(
+    'file' => 'includes/VersioncontrolRepository.php',
+  );
+
+  // Add rules classes
+  $items['versioncontrol_data_type_repository'] = array(
+    'file' => 'includes/versioncontrol.rules.inc',
+  );
+  $items['versioncontrol_data_type_operation'] = array(
+    'file' => 'includes/versioncontrol.rules.inc',
+  );
+
+  return $items;
+}
+
 /**
  * Implementation of hook_init():
  * Code that is run on every page request, except for cached ones.

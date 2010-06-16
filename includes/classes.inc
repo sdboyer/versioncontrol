@@ -7,7 +7,7 @@
  */
 
 /**
- * Repository loader, sigleton class.
+ * Repository loader, singleton class.
  */
 final class VersioncontrolRepositoryCache {
   private static $instance;

@@ -2,4 +2,6 @@
 
 versioncontrol 6.x-2.x
 ======================
-- Major rewrite of the 1.x branch in OOP
+- Introduced dependency on autoload, both for future dbtng dependency and to
+  assist with managing all the classes in the vcsapi system itself.
+- Major rewrite of the 1.x branch in OOP.

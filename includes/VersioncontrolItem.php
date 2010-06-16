@@ -5,8 +5,6 @@
  * Item class
  */
 
-require_once 'VersioncontrolRepository.php';
-
 /**
  * @name VCS item types.
  */

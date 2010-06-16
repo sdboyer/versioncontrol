@@ -16,10 +16,6 @@
 // demonstrate how the various registration messages are being used.
 define('VERSIONCONTROL_REGISTER_DEMO', -1);
 
-//TODO: define if we want to do the load each time, per use, or all-in-one like views.inc
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolRepository.php';
-
 /**
  * Form callback for "versioncontrol/register[/$register_uid[/$register_at_repo_id]]":
  * Provide an indirection that leads to an account registration form.

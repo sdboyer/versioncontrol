@@ -5,10 +5,6 @@
  * Operation class
  */
 
-require_once 'VersioncontrolItem.php';
-require_once 'VersioncontrolBranch.php';
-require_once 'VersioncontrolTag.php';
-
 /**
  * @name VCS operations
  * a.k.a. stuff that is recorded for display purposes.

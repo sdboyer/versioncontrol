@@ -5,8 +5,6 @@
  * Repo Tag class
  */
 
-require_once 'VersioncontrolLabel.php';
-
 /**
  * Represents a tag of code(not changing state)
  */

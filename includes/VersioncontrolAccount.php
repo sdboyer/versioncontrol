@@ -5,9 +5,6 @@
  * Account class
  */
 
-require_once 'VersioncontrolAccount.php';
-require_once 'VersioncontrolRepository.php';
-
 /**
  * Account class
  *

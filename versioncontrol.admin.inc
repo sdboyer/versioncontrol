@@ -12,11 +12,6 @@
  * Copyright 2007, 2008, 2009 by Jakob Petsovits ("jpetso", http://drupal.org/user/56020)
  */
 
-//TODO: define if we want to do the load each time, per use, or all-in-one like views.inc
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolRepository.php';
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolOperation.php';
-
 /**
  * Form callback for "admin/project/versioncontrol-settings/general":
  * Provide a form for settings of Version Control API itself.

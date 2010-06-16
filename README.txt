@@ -36,7 +36,7 @@ forms and API of this module.
 AUTHOR
 ------
 Jakob Petsovits <jpetso at gmx DOT at>
-
+Sam Boyer <drupal at samboyer DOT org>
 
 CREDITS
 -------

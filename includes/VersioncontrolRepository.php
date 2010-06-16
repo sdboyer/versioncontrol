@@ -5,10 +5,6 @@
  * Repo class
  */
 
-
-require_once 'VersioncontrolOperation.php';
-require_once 'VersioncontrolBackend.php';
-
 /**
  * Contain fundamental information about the repository.
  */

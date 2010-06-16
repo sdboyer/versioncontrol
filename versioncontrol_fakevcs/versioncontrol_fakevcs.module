@@ -12,11 +12,6 @@
 define('VERSIONCONTROL_FAKEVCS_UPDATE_CRON',   0);
 define('VERSIONCONTROL_FAKEVCS_UPDATE_SCRIPT', 1);
 
-// The admin pages.
-include_once(drupal_get_path('module', 'versioncontrol_fakevcs') .'/versioncontrol_fakevcs.admin.inc');
-include_once(drupal_get_path('module', 'versioncontrol_fakevcs') .'/includes/classes.inc');
-require_once drupal_get_path('module', 'versioncontrol') .'/includes/VersioncontrolAccount.php';
-
 /**
  * Implementation of hook_versioncontrol_backends().
  */

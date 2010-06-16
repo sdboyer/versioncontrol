@@ -1,6 +1,5 @@
 <?php
-
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/VersioncontrolBackend.php';
+// $Id$
 
 class VersioncontrolFakeBackend extends VersioncontrolBackend {
 

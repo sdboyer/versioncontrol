@@ -6,10 +6,6 @@
  * Helper for testing Version Control core
  */
 
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/VersioncontrolBackend.php';
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/VersioncontrolRepository.php';
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/VersioncontrolAccount.php';
-
 /**
  * Implementation of hook_versioncontrol_backends().
  */

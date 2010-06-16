@@ -5,8 +5,6 @@
  * Repo Label class
  */
 
-require_once 'VersioncontrolRepository.php';
-
 /**
  * @name VCS label types
  * Use same values as VERSIONCONTROL_OPERATION_* for backward compatibility
