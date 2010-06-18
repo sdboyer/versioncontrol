@@ -60,7 +60,9 @@ final class VersioncontrolRepositoryCache {
       return;
     }
     if (!$this->repoCache['repo_id'][$repo_id] instanceof VersioncontrolRepository) {
-      $this->cacheRepository(array_shift($this->getRepositories(array('repo_id' => $repo_id))));
+      $repos = $this->getRepositories(array('repo_id' => $repo_id));
+      $repo = reset($repos);
+      $this->cacheRepository($repo);
     }
     return $this->repoCache['repo_id'][$repo_id];
   }
@@ -169,7 +171,6 @@ final class VersioncontrolRepositoryCache {
     $this->repoCache['name'][$repository->name][$repository->repo_id] = &$repository;
     $this->repoCache['vcs'][$repository->vcs][$repository->repo_id] = &$repository;
   }
-
 }
 
 /**
