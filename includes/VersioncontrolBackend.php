@@ -14,7 +14,7 @@ abstract class VersioncontrolBackend implements ArrayAccess {
   /**
    * The user-visible name of the VCS.
    *
-   * @var    string
+   * @var string
    */
   public $name;
 
@@ -22,7 +22,7 @@ abstract class VersioncontrolBackend implements ArrayAccess {
    * A short description of the backend, if possible not longer than
    * one or two sentences.
    *
-   * @var    string
+   * @var string
    */
   public $description;
 
@@ -33,14 +33,42 @@ abstract class VersioncontrolBackend implements ArrayAccess {
    * of VERSIONCONTROL_CAPABILITY_* values. If no additional capabilities
    * are supported by the backend, this array will be empty.
    *
-   * @var    array
+   * @var array
    */
   public $capabilities;
 
   /**
    * classes which this backend overwrite
    */
-  public $classes;
+  public $classes = array();
+
+  public function __construct() {
+    // Add defaults to $this->classes
+    $this->classes += array(
+      'repo'      => 'VersioncontrolRepository',
+      'account'   => 'VersioncontrolAccount',
+      'operation' => 'VersioncontrolOperation',
+      'item'      => 'VersioncontrolItem',
+      'branch'    => 'VersioncontrolBranch',
+      'tag'       => 'VersioncontrolTag',
+    );
+  }
+
+  public function buildObject($type, $data) {
+    $obj = new $this->classes[$type]();
+    $obj->buildDatabase($data);
+    return $obj;
+  }
+
+//  public function buildQueryRepository($query) {}
+//
+//  public function buildQueryLabel($query) {}
+//
+//  public function buildQueryOperation($query) {}
+//
+//  public function buildQueryAccount($query) {}
+//
+//  public function buildQueryItem($query) {}
 
   //ArrayAccess interface implementation
   public function offsetExists($offset) {

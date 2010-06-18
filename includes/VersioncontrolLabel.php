@@ -78,24 +78,21 @@ abstract class VersioncontrolLabel implements ArrayAccess {
     if (!empty($this->label_id)) { // already in the database
       return;
     }
-    $result = db_query(
-      "SELECT label_id, repo_id, name, type FROM {versioncontrol_labels}
-    WHERE repo_id = %d AND name = '%s' AND type = %d",
-    $this->repository->repo_id, $this->name, $this->type
-  );
-    while ($row = db_fetch_object($result)) {
-      // Replace / fill in properties that were not in the WHERE condition.
-      $this->label_id = $row->label_id;
-      return;
+    $result = db_result(db_query("SELECT label_id FROM {versioncontrol_labels} WHERE repo_id = %d AND name = '%s' AND type = %d",
+      $this->repository->repo_id, $this->name, $this->type));
+    if ($result) {
+      $this->label_id = $result;
     }
-    // The item doesn't yet exist in the database, so create it.
-    $this->insert();
+    else {
+      // The item doesn't yet exist in the database, so create it.
+      $this->insert();
+    }
   }
 
   /**
    * Insert label to db
    */
-  private function insert() {
+  protected function insert() {
     $this->repo_id = $this->repository->repo_id; // for drupal_write_record() only
 
     if (isset($this->label_id)) {
@@ -104,7 +101,7 @@ abstract class VersioncontrolLabel implements ArrayAccess {
     }
     else {
       // The label does not yet exist, create it.
-      // drupal_write_record() also adds the 'label_id' to the $label array.
+      // drupal_write_record() also assigns the new id to $this->label_id.
       drupal_write_record('versioncontrol_labels', $this);
     }
     unset($this->repo_id);

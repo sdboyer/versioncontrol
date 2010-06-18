@@ -102,6 +102,20 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     return check_plain($repository->name);
   }
 
+  public function getBranches($conditions = array()) {
+    $query = db_select('versioncontrol_labels', 'vcl')
+      ->condition('vcl.repo_id', $this->repo_id)
+      ->condition('vcl.type', VERSIONCONTROL_LABEL_BRANCH);
+    $this->_getBranches($query);
+    foreach ($conditions as $field => $value) {
+      $query->condition('vcl.' . $field, $value);
+    }
+  }
+
+  protected function _getBranches($query) {
+
+  }
+
   /**
    * Retrieve known branches and/or tags in a repository as a set of label arrays.
    *
@@ -125,6 +139,8 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    *   constraints, an empty array is returned.
    */
   public function getLabels($constraints = array()) {
+    $query = db_select('versioncontrol_labels', 'vcl')
+      ->condition('vcl.repo_id', $this->repo_id);
     $and_constraints = array('repo_id = %d');
     $params = array($this->repo_id);
 
