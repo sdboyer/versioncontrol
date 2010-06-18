@@ -6,16 +6,6 @@
  */
 
 /**
- * @name VCS operations
- * a.k.a. stuff that is recorded for display purposes.
- */
-//@{
-define('VERSIONCONTROL_OPERATION_COMMIT', 1);
-define('VERSIONCONTROL_OPERATION_BRANCH', 2);
-define('VERSIONCONTROL_OPERATION_TAG',    3);
-//@}
-
-/**
  * Stuff that happened in a repository at a specific time
  */
 abstract class VersioncontrolOperation implements ArrayAccess {

@@ -6,26 +6,6 @@
  */
 
 /**
- * @name VCS item types.
- */
-//@{
-define('VERSIONCONTROL_ITEM_FILE',              1);
-define('VERSIONCONTROL_ITEM_DIRECTORY',         2);
-/**
- * @name VCS "Deleted" item types.
- * Only used for items that don't exist in the repository (anymore), at least
- * not in the given revision. That is mostly the case with items that
- * were deleted by a commit and are returned as result by
- * VersioncontrolOperation::getItems(). A "deleted file" can also be
- * returned by directory listings for CVS, representing "dead files".
- */
-//@{
-define('VERSIONCONTROL_ITEM_FILE_DELETED',      3);
-define('VERSIONCONTROL_ITEM_DIRECTORY_DELETED', 4);
-//@}
-//@}
-
-/**
  * Represent an Item (a.k.a. item revisions)
  *
  * Files or directories inside a specific repository, including information

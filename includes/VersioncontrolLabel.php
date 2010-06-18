@@ -6,15 +6,6 @@
  */
 
 /**
- * @name VCS label types
- * Use same values as VERSIONCONTROL_OPERATION_* for backward compatibility
- */
-//@{
-define('VERSIONCONTROL_LABEL_BRANCH', 2);
-define('VERSIONCONTROL_LABEL_TAG',    3);
-//@}
-
-/**
  * The parent of branches and tags classes
  */
 abstract class VersioncontrolLabel implements ArrayAccess {
