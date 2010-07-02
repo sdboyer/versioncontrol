@@ -8,7 +8,7 @@
 /**
  * Contain fundamental information about the repository.
  */
-abstract class VersioncontrolRepository implements ArrayAccess {
+abstract class VersioncontrolRepository extends VersioncontrolEntity implements ArrayAccess {
   // Attributes
   /**
    * db identifier
@@ -51,8 +51,6 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    */
   public $data = array();
 
-  protected $built = FALSE;
-
   // Associations
   /**
    * The backend associated with this repository
@@ -61,59 +59,11 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    */
   public $backend;
 
-  // Operations
-  /**
-   * Constructor
-   */
-  public function __construct($repo_id, $args = array(), $buildSelf = TRUE) {
-    $this->repo_id = $repo_id;
-    if ($buildSelf) {
-      $this->buildSelf();
-    }
-    else {
-      $this->build($args);
-    }
-    $this->built = TRUE;
-  }
-
-  protected function buildSelf() {
-    $data = db_fetch_array(db_query("
-      SELECT
-      vr.name, vr.root, vr.authorization_method, vr.data
-      FROM {versioncontrol_repositories} vr
-      WHERE vr.repo_id = %d",
-      $this->repo_id));
-    $this->build($data);
-  }
-
-  protected function build($args = array()) {
-    foreach ($args as $prop => $value) {
-      $this->$prop = $value;
-    }
-    if (is_string($this->data)) {
-      $this->data = unserialize($this->data);
-    }
-  }
-
   /**
    * Title callback for repository arrays.
    */
   public function titleCallback() {
     return check_plain($repository->name);
-  }
-
-  public function getBranches($conditions = array()) {
-    $query = db_select('versioncontrol_labels', 'vcl')
-      ->condition('vcl.repo_id', $this->repo_id)
-      ->condition('vcl.type', VERSIONCONTROL_LABEL_BRANCH);
-    $this->_getBranches($query);
-    foreach ($conditions as $field => $value) {
-      $query->condition('vcl.' . $field, $value);
-    }
-  }
-
-  protected function _getBranches($query) {
-
   }
 
   /**

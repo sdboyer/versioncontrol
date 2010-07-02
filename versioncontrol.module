@@ -160,6 +160,17 @@ function versioncontrol_autoload_info() {
     );
   }
 
+  // Add mushed together classes.inc
+  $classes = array(
+    'VersioncontrolEntity',
+  );
+
+  foreach ($classes as $name) {
+    $items[$name] = array(
+      'file' => "includes/classes.inc",
+    );
+  }
+
   // Add special cases
   $items['VersioncontrolRepositoryUrlHandler'] = array(
     'file' => 'includes/VersioncontrolRepository.php',

@@ -55,8 +55,12 @@ abstract class VersioncontrolBackend implements ArrayAccess {
   }
 
   public function buildObject($type, $data) {
-    $obj = new $this->classes[$type]();
-    $obj->buildDatabase($data);
+    $class = $this->classes[$type];
+    if (!is_subclass_of($class, VersioncontrolEntity)) {
+      throw new Exception('Invalid Versioncontrol entity class specified; all entity classes should have VersioncontrolEntity as a parent', $class);
+    }
+    $obj = new $this->classes[$type]($this);
+    $obj->build($data);
     return $obj;
   }
 

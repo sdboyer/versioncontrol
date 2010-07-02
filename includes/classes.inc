@@ -276,6 +276,48 @@ class VersioncontrolItemController extends VersioncontrolEntityController {
 }
 
 /**
+ * Abstract parent class for all the various entity classes utilized by VC API.
+ *
+ * Basically just defines shared CRUD/loader-type behavior.
+ */
+abstract class VersioncontrolEntity {
+  protected $built = FALSE;
+
+//  /**
+//   * An instance of the Backend factory used to create this object, passed in
+//   * to the constructor. If this entity needs to spawn more entities, then it
+//   * should use
+//   * @var VersioncontrolBackend
+//   */
+//  protected $backend;
+//
+//  public function __construct($backend) {
+//    $this->backend = $backend;
+//  }
+
+  /**
+   * Pseudo-constructor method; call this method with an associative array of
+   * properties to be assigned to this object.
+   *
+   * @param array $args
+   */
+  public function build($args = array()) {
+    // If this object has already been built, bail out.
+    if ($this->built == TRUE) {
+      return FALSE;
+    }
+
+    foreach ($args as $prop => $value) {
+      $this->$prop = $value;
+    }
+    if (is_string($this->data)) {
+      $this->data = unserialize($this->data);
+    }
+    $this->built = TRUE;
+  }
+}
+
+/**
  * Repository loader, singleton class.
  */
 final class VersioncontrolRepositoryCache {
