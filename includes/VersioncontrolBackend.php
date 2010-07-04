@@ -44,6 +44,8 @@ abstract class VersioncontrolBackend implements ArrayAccess {
 
   public function __construct() {
     // Add defaults to $this->classes
+    // FIXME currently all these classes are abstract, so this won't work. Decide
+    // if this should be removed, or if they should be made concrete classes
     $this->classes += array(
       'repo'      => 'VersioncontrolRepository',
       'account'   => 'VersioncontrolAccount',
