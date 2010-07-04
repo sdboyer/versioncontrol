@@ -66,15 +66,18 @@ abstract class VersioncontrolBackend implements ArrayAccess {
     return $obj;
   }
 
-//  public function buildQueryRepository($query) {}
-//
-//  public function buildQueryLabel($query) {}
-//
-//  public function buildQueryOperation($query) {}
-//
-//  public function buildQueryAccount($query) {}
-//
-//  public function buildQueryItem($query) {}
+  /**
+   * Augment a select query with options specific to this backend.
+   *
+   * This method is fired by entity controllers whenever the backends type of
+   * the entities to be loaded is known prior to the query being issued.
+   *
+   * @param SelectQuery $query
+   *   The query object being built.
+   * @param string $entity_type
+   *   The type of entity being loaded.
+   */
+  public function augmentEntitySelectQuery($query, $entity_type) {}
 
   //ArrayAccess interface implementation
   public function offsetExists($offset) {

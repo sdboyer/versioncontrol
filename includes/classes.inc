@@ -13,6 +13,14 @@ abstract class VersioncontrolEntityController {
   protected $idKey;
   protected $cache = TRUE;
   protected $backends = array();
+
+  /**
+   * If set, contains an instance of a VersioncontrolBackend object; this object
+   * provides meta-information, as well as acting as a factory that takes data
+   * retrieved by this controller and instanciating entities.
+   *
+   * @var VersioncontrolBackend
+   */
   protected $backend;
 
   /**
@@ -43,7 +51,7 @@ abstract class VersioncontrolEntityController {
    */
   public function setBackend($backend) {
     if (isset($this->backends[$backend])) {
-      $this->backend = $backend;
+      $this->backend = $this->backends[$backend];
     }
   }
 
@@ -85,7 +93,7 @@ abstract class VersioncontrolEntityController {
     }
 
     if (!empty($queried_entities)) {
-      $built_entities = $this->buildObjects($queried_entities);
+      $built_entities = $this->buildEntities($queried_entities);
       $entities += $built_entities;
     }
 
@@ -151,10 +159,12 @@ abstract class VersioncontrolEntityController {
         }
       }
     }
+    // Allow the current backend to augment the query as needed.
+    $this->backend->augmentEntitySelectQuery($query, $this->entityType);
     return $query;
   }
 
-  protected function buildQueryAttachBackend($query) {
+  protected function queryAlterGetBackendType($query) {
     if (!isset($this->backend)) {
       // Add a join to the repo table so we know which backend to use.
       $query->join('versioncontrol_repositories', 'vcr', "vcr.repo_id = base.repo_id");
@@ -169,7 +179,7 @@ abstract class VersioncontrolEntityController {
    *
    * @param array $queried_entities
    */
-  protected function buildObjects(&$queried_entities) {
+  protected function buildEntities(&$queried_entities) {
     $built = array();
     foreach ($queried_entities as $id => $entity) {
       $built[$id] = $this->backends[$entity->vcs]->buildObject($this->entityType, $entity);
@@ -283,17 +293,18 @@ class VersioncontrolItemController extends VersioncontrolEntityController {
 abstract class VersioncontrolEntity {
   protected $built = FALSE;
 
-//  /**
-//   * An instance of the Backend factory used to create this object, passed in
-//   * to the constructor. If this entity needs to spawn more entities, then it
-//   * should use
-//   * @var VersioncontrolBackend
-//   */
-//  protected $backend;
-//
-//  public function __construct($backend) {
-//    $this->backend = $backend;
-//  }
+  /**
+   * An instance of the Backend factory used to create this object, passed in
+   * to the constructor. If this entity needs to spawn more entities, then it
+   * should reuse this backend object to do so.
+   *
+   * @var VersioncontrolBackend
+   */
+  protected $backend;
+
+  public function __construct(VersioncontrolBackend $backend) {
+    $this->backend = $backend;
+  }
 
   /**
    * Pseudo-constructor method; call this method with an associative array of
