@@ -63,7 +63,7 @@ abstract class VersioncontrolEntityController {
     $this->entityCache = array();
   }
 
-  public function load($ids = array(), $conditions = array()) {
+  public function load($ids = array(), $conditions = array(), $callback = NULL) {
     $entities = array();
 
     // Create a new variable which is either a prepared version of the $ids
@@ -87,6 +87,10 @@ abstract class VersioncontrolEntityController {
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
       $query = $this->buildQuery($ids, $conditions, $revision_id);
+      // If a query modification callback was provided, fire it.
+      if (!is_null($callback) && function_exists($callback)) {
+        $callback($query, $ids, $conditions);
+      }
       $queried_entities = $query
         ->execute()
         ->fetchAllAssoc($this->idKey);
