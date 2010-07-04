@@ -60,10 +60,45 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
   public $backend;
 
   /**
+   * An array of VersioncontrolEntityController objects used to spawn more
+   * entities from this repository, if needed. These objects are lazy-
+   * instanciated to avoid unnecessary object creation.
+   *
+   * @var array
+   */
+  protected $controllers = array();
+
+  /**
    * Title callback for repository arrays.
    */
   public function titleCallback() {
     return check_plain($repository->name);
+  }
+
+  /**
+   * Retrieve known branches and/or tags in a repository from the database
+   * as an array of VersioncontrolLabel-descended objects.
+   *
+   * @param array $ids
+   *   An array of label ids. If given, only labels with one of these ids will
+   *   be returned.
+   * @param array $conditions
+   *   An associative array of additional conditions. These will be passed to
+   *   the entity controller and composed into the query. The array should be
+   *   key/value pairs with the field name as key, and desired field value as
+   *   value. The value may also be an array, in which case the IN operator is
+   *   used. For more complex requirements,
+   *   @see VersioncontrolEntityController::buildQuery() .
+   *
+   * @return
+   *   An associative array of label objects, keyed on their
+   */
+  public function getLabels($ids = array(), $conditions = array()) {
+    if (!isset($this->controllers['labels'])) {
+      $this->controllers['labels'] = new VersioncontrolLabelController();
+      $this->controllers['labels']->setBackend($this->backend);
+    }
+    return $this->controllers['labels']->load($ids, $conditions);
   }
 
   /**
@@ -88,7 +123,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    *   If not a single known label in the given repository matches these
    *   constraints, an empty array is returned.
    */
-  public function getLabels($constraints = array()) {
+  public function OLDgetLabels($constraints = array()) {
     $query = db_select('versioncontrol_labels', 'vcl')
       ->condition('vcl.repo_id', $this->repo_id);
     $and_constraints = array('repo_id = %d');
@@ -180,13 +215,6 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
       }
     }
     return TRUE;
-  }
-
-  /**
-   * Let child backend repo classes add information that _is not_ in
-   * VersioncontrolRepository::data
-   */
-  public function _getRepository() {
   }
 
   /**
