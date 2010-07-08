@@ -31,7 +31,7 @@ class VersioncontrolAccountStatusTestCase extends DrupalWebTestCase {
    */
   function setUp() {
     // load core and fake test backend modules
-    parent::setUp('versioncontrol', 'versioncontrol_test', 'versioncontrol_account_status');
+    parent::setUp('autoload', 'versioncontrol', 'versioncontrol_test', 'versioncontrol_account_status');
 
     // Create our users
     $this->admin_user = $this->drupalCreateUser(array('administer version control systems'));

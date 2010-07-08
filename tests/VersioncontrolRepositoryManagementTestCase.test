@@ -29,7 +29,7 @@ class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
    */
   function setUp() {
     // load core and fake test backend modules
-    parent::setUp('versioncontrol', 'versioncontrol_test');
+    parent::setUp('autoload', 'versioncontrol', 'versioncontrol_test');
 
     // Create and login the admin user
     $this->admin_user = $this->drupalCreateUser(array('administer version control systems'));

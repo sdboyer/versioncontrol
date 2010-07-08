@@ -138,7 +138,7 @@ final class VersioncontrolRepositoryCache {
         //     process(1-level-up foreach) but now it's not posible, because
         //     we can not inherit VersioncontrolRepositoryCache
         $vcs_repository->_getRepository();
-        if (!$this->repoCache['repo_id'][$repository['repo_id']] instanceof VersioncontrolRepository) {
+        if (!isset($this->repoCache['repo_id'][$repository['repo_id']]) || !$this->repoCache['repo_id'][$repository['repo_id']] instanceof VersioncontrolRepository) {
           $this->cacheRepository($vcs_repository);
         }
         $result_repositories[$repository['repo_id']] = $vcs_repository;

@@ -1012,6 +1012,7 @@ function _versioncontrol_account_status_send_status_update_mails($status_data, $
     'repository' => VersioncontrolRepositoryCache::getInstance()->getRepository($status_data['repo_id']),
     'admin_message' => $admin_message,
     'status' => $status_data['status'],
+    'motivation_message' => $status_data['motivation'],
   );
 
   // Send an e-mail to the user whose account status has been updated.

@@ -29,7 +29,7 @@ class VersioncontrolRepositoryUnitTestingTestCase extends DrupalWebTestCase {
    */
   function setUp() {
     // load core and fake test backend modules
-    parent::setUp('versioncontrol', 'versioncontrol_test');
+    parent::setUp('autoload', 'versioncontrol', 'versioncontrol_test');
     $this->repoCache = VersioncontrolRepositoryCache::getInstance();
   }
 
