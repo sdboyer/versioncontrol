@@ -114,7 +114,7 @@ define('VERSIONCONTROL_ITEM_DIRECTORY_DELETED', 4);
 /** Used internally by the repository and account admin pages. Private constant. */
 define('VERSIONCONTROL_FORM_CREATE', FALSE);
 
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/classes.inc';
+require_once drupal_get_path('module', 'versioncontrol') . '/includes/interfaces.inc';
 
 /**
  * Implementation of hook_autoload_info().
