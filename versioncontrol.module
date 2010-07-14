@@ -114,6 +114,8 @@ define('VERSIONCONTROL_ITEM_DIRECTORY_DELETED', 4);
 /** Used internally by the repository and account admin pages. Private constant. */
 define('VERSIONCONTROL_FORM_CREATE', FALSE);
 
+require_once drupal_get_path('module', 'versioncontrol') . '/includes/classes.inc';
+
 /**
  * Implementation of hook_autoload_info().
  *
@@ -126,37 +128,20 @@ function versioncontrol_autoload_info() {
   // Add classes in self-named files
   $selfnamed = array(
     'VersioncontrolAccount',
+    'VersioncontrolAccountCache',
     'VersioncontrolBackend',
     'VersioncontrolBranch',
     'VersioncontrolItem',
     'VersioncontrolLabel',
     'VersioncontrolOperation',
+    'VersioncontrolOperationCache',
     'VersioncontrolRepository',
+    'VersioncontrolRepositoryCache',
     'VersioncontrolTag',
   );
   foreach ($selfnamed as $name) {
     $items[$name] = array(
       'file' => "includes/$name.php",
-    );
-  }
-
-  // Add mushed together classes.inc
-  $classes = array(
-    'VersioncontrolItemParallelItems',
-    'VersioncontrolRepositoryCache',
-    'VersioncontrolAccountCache',
-    'VersioncontrolOperationCache',
-    'VersioncontrolItemDirectoryContents',
-    'VersioncontrolItemExportFile',
-    'VersioncontrolItemExportDirectory',
-    'VersioncontrolItemGetFileAnnotation',
-    'VersioncontrolRepositoryGetItem',
-    'VersioncontrolRepositoryImportExport',
-  );
-
-  foreach ($classes as $name) {
-    $items[$name] = array(
-      'file' => "includes/classes.inc",
     );
   }
 
