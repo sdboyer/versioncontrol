@@ -190,7 +190,12 @@ abstract class VersioncontrolEntityController {
   protected function buildEntities(&$queried_entities) {
     $built = array();
     foreach ($queried_entities as $id => $entity) {
-      $built[$id] = $this->backends[$entity->vcs]->buildObject($this->entityType, $entity);
+      if (isset($this->backend)) {
+        $built[$id] = $this->backend->buildObject($this->entityType, $entity);
+      }
+      else {
+        $built[$id] = $this->backends[$entity->vcs]->buildObject($this->entityType, $entity);
+      }
     }
     return $built;
   }

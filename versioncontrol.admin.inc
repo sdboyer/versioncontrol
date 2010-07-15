@@ -537,7 +537,7 @@ function versioncontrol_admin_account_export_display_form(&$form_state, $reposit
 function versioncontrol_admin_repository_list(&$form_state) {
   $form = array();
   $backends = versioncontrol_get_backends();
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories();
+  $repositories = versioncontrol_repository_load_multiple(FALSE);
 
   if (empty($repositories)) {
     $form['empty'] = array(
