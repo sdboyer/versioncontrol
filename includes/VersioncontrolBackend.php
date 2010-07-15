@@ -69,8 +69,8 @@ abstract class VersioncontrolBackend implements ArrayAccess {
   /**
    * Augment a select query with options specific to this backend.
    *
-   * This method is fired by entity controllers whenever the backends type of
-   * the entities to be loaded is known prior to the query being issued.
+   * This method is fired by entity controllers whenever the backend type is
+   * known prior to the issuing of the query.
    *
    * @param SelectQuery $query
    *   The query object being built.
