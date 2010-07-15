@@ -160,14 +160,20 @@ function versioncontrol_autoload_info() {
     );
   }
 
-  // Add mushed together classes.inc
-  $classes = array(
+  // Add controllers.inc contents
+  $controllers = array(
+    'VersioncontrolEntityController',
+    'VersioncontrolRepositoryController',
+    'VersioncontrolAccountController',
+    'VersioncontrolLabelController',
+    'VersioncontrolOperationController',
+    'VersioncontrolItemController',
     'VersioncontrolEntity',
   );
 
-  foreach ($classes as $name) {
+  foreach ($controllers as $name) {
     $items[$name] = array(
-      'file' => "includes/classes.inc",
+      'file' => "includes/controllers.inc",
     );
   }
 

@@ -331,31 +331,3 @@ abstract class VersioncontrolEntity {
     $this->built = TRUE;
   }
 }
-
-/**
- * Repository loader, singleton class.
- */
-final class VersioncontrolRepositoryCache {
-  private static $instance;
-  private $backends = array();
-  private $repoCache = array('repo_id' => array(), 'name' => array(), 'vcs' => array());
-  /**
-   * Internal state variable indicating whether or not all repositories have
-   * been fetched (via VersioncontrolRepositoryCache::getInstance()->getAllRepositories()).
-   * @var bool
-   */
-  private $allFetched = FALSE;
-
-  private function __construct() {
-    // TODO really oughtta make this better.
-    $this->backends = versioncontrol_get_backends();
-    $result = db_query('SELECT repo_id, name, vcs FROM {versioncontrol_repositories}');
-    // Cache a skeletal, low-mem overhead list of all the repos we have.
-    while ($item = db_fetch_object($result)) {
-      $this->repoCache['repo_id'][$item->repo_id] = &$item;
-      // $this->repoCache['name'][$item->name] = &$item;
-      // $this->repoCache['vcs'][$item->vcs] = &$item;
-    }
-
-    $this->repoCache['repo_ids'] = &$this->repoCache['repo_id']; // backwards compat
-  }
