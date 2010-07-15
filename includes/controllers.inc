@@ -41,7 +41,7 @@ abstract class VersioncontrolEntityController {
 
   public function __construct() {
     $backends = versioncontrol_get_backends();
-    if (variable_get('versioncontrol_single_backend_mode')) {
+    if (variable_get('versioncontrol_single_backend_mode', FALSE)) {
       $this->backend = reset($backends);
     }
     else {
@@ -90,7 +90,7 @@ abstract class VersioncontrolEntityController {
     // load, if loading a revision, or if $conditions was passed without $ids.
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
-      $query = $this->buildQuery($ids, $conditions, $revision_id);
+      $query = $this->buildQuery($ids, $conditions);
       // If a query modification callback was provided, fire it.
       if (!is_null($callback) && function_exists($callback)) {
         $callback($query, $ids, $conditions);

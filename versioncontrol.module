@@ -582,7 +582,13 @@ function versioncontrol_get_backends($backend = '') {
   if (!isset($backends)) {
     $backends = module_invoke_all('versioncontrol_backends');
   }
-  return isset($backends[$backend]) ? $backends[$backend] : FALSE;
+
+  if (!empty($backend)) {
+    return isset($backends[$backend]) ? $backends[$backend] : FALSE;
+  }
+  else {
+    return $backends;
+  }
 }
 
 /**

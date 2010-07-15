@@ -58,7 +58,7 @@ abstract class VersioncontrolBackend {
 
   public function buildObject($type, $data) {
     $class = $this->classes[$type];
-    if (!is_subclass_of($class, VersioncontrolEntity)) {
+    if (!is_subclass_of($class, 'VersioncontrolEntity')) {
       throw new Exception('Invalid Versioncontrol entity class specified; all entity classes should have VersioncontrolEntity as a parent', $class);
     }
     $obj = new $this->classes[$type]($this);
