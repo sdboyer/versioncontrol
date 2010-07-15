@@ -114,8 +114,6 @@ define('VERSIONCONTROL_ITEM_DIRECTORY_DELETED', 4);
 /** Used internally by the repository and account admin pages. Private constant. */
 define('VERSIONCONTROL_FORM_CREATE', FALSE);
 
-require_once drupal_get_path('module', 'versioncontrol') . '/includes/interfaces.inc';
-
 /**
  * Implementation of hook_autoload_info().
  *
@@ -142,6 +140,23 @@ function versioncontrol_autoload_info() {
   foreach ($selfnamed as $name) {
     $items[$name] = array(
       'file' => "includes/$name.php",
+    );
+  }
+
+  // Add mushed together interfaces.inc
+  $interfaces = array(
+    'VersioncontrolItemParallelItems',
+    'VersioncontrolItemDirectoryContents',
+    'VersioncontrolItemExportFile',
+    'VersioncontrolItemExportDirectory',
+    'VersioncontrolItemGetFileAnnotation',
+    'VersioncontrolRepositoryGetItem',
+    'VersioncontrolRepositoryImportExport',
+  );
+
+  foreach ($interfaces as $name) {
+    $items[$name] = array(
+      'file' => "includes/interfaces.inc",
     );
   }
 
