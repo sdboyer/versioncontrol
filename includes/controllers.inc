@@ -315,9 +315,9 @@ abstract class VersioncontrolEntity {
    */
   protected $backend;
 
-  public function __construct(VersioncontrolBackend $backend) {
-    $this->backend = $backend;
-  }
+//  public function __construct(VersioncontrolBackend $backend) {
+//    $this->backend = $backend;
+//  }
 
   /**
    * Pseudo-constructor method; call this method with an associative array of
