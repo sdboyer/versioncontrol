@@ -226,6 +226,10 @@ function versioncontrol_user($type, &$edit, &$user, $category = NULL) {
  * Implementation of hook_menu().
  */
 function versioncontrol_menu() {
+  // FIXME this is hacky; it forces autoload to rebuild its cache to ensure
+  // everything is up-to-date, since we need it to be for this function.
+  autoload_get_lookup(TRUE);
+
   $items = array();
 
   $admin = array(
