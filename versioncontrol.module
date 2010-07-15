@@ -177,15 +177,6 @@ function versioncontrol_autoload_info() {
 }
 
 /**
- * Implementation of hook_init():
- * Code that is run on every page request, except for cached ones.
- */
-function versioncontrol_init() {
-  // The backend-only part of the API.
-  module_load_include('inc', 'versioncontrol', 'versioncontrol-backend');
-}
-
-/**
  * Implementation of hook_theme().
  */
 function versioncontrol_theme() {
