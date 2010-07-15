@@ -2,6 +2,11 @@
 
 versioncontrol 6.x-2.x
 ======================
+- Introduced 'single backend mode' $conf flag, a global flag indicating
+  whether or not multiple backends are enabled. Useful because single backend
+  mode allows streamlined querying and operations.
+- Created a repository multiple loader function, fashioned after similar such
+  entity multiloaders in D7.
 - Introduced dependency on autoload, both for future dbtng dependency and to
   assist with managing all the classes in the vcsapi system itself.
 - Major rewrite of the 1.x branch in OOP.

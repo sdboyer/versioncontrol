@@ -194,6 +194,16 @@ function versioncontrol_autoload_info() {
 }
 
 /**
+ * Implementation of hook_flush_caches().
+ *
+ * Triggers backend mode determination.
+ *
+ */
+function versioncontrol_flush_caches() {
+  versioncontrol_determine_backend_mode();
+}
+
+/**
  * Implementation of hook_theme().
  */
 function versioncontrol_theme() {
@@ -432,6 +442,16 @@ function versioncontrol_user_access($account = NULL) {
 }
 
 /**
+ * Determine if we are operating in single or multi-backend mode, and set a
+ * $conf variable accordingly.
+ *
+ */
+function versioncontrol_determine_backend_mode() {
+  $single = count(versioncontrol_get_backends()) <= 1;
+  variable_set('versioncontrol_single_backend_mode', $single);
+}
+
+/**
  * Custom access callback, determining if the current user (or the one given
  * in @p $account, if set) is permitted to view version control account
  * settings of the user specified the first user id in @p $vcs_accounts.
@@ -496,6 +516,37 @@ function versioncontrol_perm() {
 function versioncontrol_repository_load($repo_id) {
   $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
   return empty($repository) ? FALSE : $repository;
+}
+
+/**
+ * Load multiple versioncontrol repositories, given provided constraints.
+ *
+ * This function has two operational modes. If more than one backend type is
+ * present in the system, it defaults to the safer, backend-agnostic load
+ * process. Otherwise, it routes the call to the appropriate backend class,
+ * which takes care of the load call and caching the controller.
+ *
+ * FIXME Putting this in now, but honestly can't remember if it's the right
+ * approach. Need to hack on the entities themselves to remember.
+ *
+ * @param $ids
+ * @param $conditions
+ * @param $callback
+ */
+function versioncontrol_repository_load_multiple($ids = array(), $conditions = array(), $callback = NULL) {
+  $single_mode = variable_get('versioncontrol_single_backend_mode');
+  if ($single_mode) {
+    $backends = versioncontrol_get_backends();
+    $backend = reset($backends);
+    return $backend->getRepositories($ids, $conditions, $callback);
+  }
+  else {
+    static $controller;
+    if (!isset($controller)) {
+      $controller = new VersioncontrolRepositoryController();
+    }
+    return $controller->load($ids, $conditions, $callback);
+  }
 }
 
 /**
