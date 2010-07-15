@@ -10,7 +10,7 @@
  *
  * @abstract
  */
-abstract class VersioncontrolBackend implements ArrayAccess {
+abstract class VersioncontrolBackend {
   /**
    * The user-visible name of the VCS.
    *
@@ -78,18 +78,4 @@ abstract class VersioncontrolBackend implements ArrayAccess {
    *   The type of entity being loaded.
    */
   public function augmentEntitySelectQuery($query, $entity_type) {}
-
-  //ArrayAccess interface implementation
-  public function offsetExists($offset) {
-    return isset($this->$offset);
-  }
-  public function offsetGet($offset) {
-    return $this->$offset;
-  }
-  public function offsetSet($offset, $value) {
-    $this->$offset = $value;
-  }
-  public function offsetUnset($offset) {
-    unset($this->$offset);
-  }
 }
