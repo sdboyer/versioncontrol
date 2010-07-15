@@ -521,25 +521,25 @@ function versioncontrol_user_accounts_load($uid, $include_unauthorized = FALSE) 
 /**
  * Get a list of all backends with its detailed information.
  *
- * @return
- *   A structured array containing information about all known backends.
- *   Array keys are the unique string identifier of the version control
- *   system.
- *   The corresponding array values are VersioncontrolBackend children
- *   objects.
+ * @param string $backend
+ *   Optional; the backend type's backend object to be returned. If not
+ *   specified, all backend types are returned.
  *
- *   If no single backends can be found, an empty array is returned.
+ * @return mixed
+ *   Either a structured array containing backend objects from each backend,
+ *   keyed on the unique string identifier corresponding to that backend (e.g.
+ *   'cvs', 'svn').
+ *   The backend objects are all descendents of VersioncontrolBackend.
  *
- *   A real-life example of such a result array can be found
- *   in the FakeVCS example module.
+ *   An example of the result array can be found in the FakeVCS example module.
  */
-function versioncontrol_get_backends() {
+function versioncontrol_get_backends($backend = '') {
   static $backends;
 
   if (!isset($backends)) {
     $backends = module_invoke_all('versioncontrol_backends');
   }
-  return $backends;
+  return isset($backends[$backend]) ? $backends[$backend] : FALSE;
 }
 
 /**
