@@ -534,19 +534,11 @@ function versioncontrol_repository_load($repo_id) {
  * @param $callback
  */
 function versioncontrol_repository_load_multiple($ids = array(), $conditions = array(), $callback = NULL) {
-  $single_mode = variable_get('versioncontrol_single_backend_mode');
-  if ($single_mode) {
-    $backends = versioncontrol_get_backends();
-    $backend = reset($backends);
-    return $backend->getRepositories($ids, $conditions, $callback);
+  static $controller;
+  if (!isset($controller)) {
+    $controller = new VersioncontrolRepositoryController();
   }
-  else {
-    static $controller;
-    if (!isset($controller)) {
-      $controller = new VersioncontrolRepositoryController();
-    }
-    return $controller->load($ids, $conditions, $callback);
-  }
+  return $controller->load($ids, $conditions, $callback);
 }
 
 /**

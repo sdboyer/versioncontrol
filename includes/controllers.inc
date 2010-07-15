@@ -40,19 +40,23 @@ abstract class VersioncontrolEntityController {
   );
 
   public function __construct() {
-    $this->backends = versioncontrol_get_backends();
+    $backends = versioncontrol_get_backends();
+    if (variable_get('versioncontrol_single_backend_mode')) {
+      $this->backend = reset($backends);
+    }
+    else {
+      $this->backends = $backends;
+    }
   }
 
   /**
    * Indicate that this controller can safely restrict itself to a single
    * backend type. This results in some logic & query optimization.
    *
-   * @param string $backend
+   * @param VersioncontrolBackend $backend
    */
-  public function setBackend($backend) {
-    if (isset($this->backends[$backend])) {
-      $this->backend = $this->backends[$backend];
-    }
+  public function setBackend(VersioncontrolBackend $backend) {
+    $this->backend = $backend;
   }
 
   public function resetBackend() {

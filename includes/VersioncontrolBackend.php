@@ -38,7 +38,7 @@ abstract class VersioncontrolBackend {
   public $capabilities;
 
   /**
-   * classes which this backend overwrite
+   * Classes which this backend will instantiate when acting as a factory.
    */
   public $classes = array();
 
