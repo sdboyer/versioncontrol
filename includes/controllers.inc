@@ -162,8 +162,13 @@ abstract class VersioncontrolEntityController {
         }
       }
     }
-    // Allow the current backend to augment the query as needed.
-    $this->backend->augmentEntitySelectQuery($query, $this->entityType);
+    if ($this->backend instanceof VersioncontrolBackend) {
+      // Allow the current backend to augment the query as needed.
+      $this->backend->augmentEntitySelectQuery($query, $this->entityType);
+    }
+    else {
+      $this->queryAlterGetBackendType($query);
+    }
     return $query;
   }
 
@@ -249,12 +254,6 @@ class VersioncontrolAccountController extends VersioncontrolEntityController {
   protected $entityType = 'account';
   protected $baseTable = 'versioncontrol_accounts';
   protected $idKey = 'repo_id'; // FIXME woah fugly. A lot needs to be reworked b/c it's got two primary keys
-
-  protected function buildQuery($ids, $conditions = array()) {
-    $query = parent::buildQuery($ids, $conditions);
-    $this->buildQueryAttachBackend($query);
-    return $query;
-  }
 }
 
 class VersioncontrolBranchController extends VersioncontrolEntityController {
@@ -264,7 +263,7 @@ class VersioncontrolBranchController extends VersioncontrolEntityController {
 
   protected function buildQuery($ids, $conditions = array()) {
     $query = parent::buildQuery($ids, $conditions);
-    $this->buildQueryAttachBackend($query);
+    $query->condition('base', 'type', VERSIONCONTROL_LABEL_BRANCH);
     return $query;
   }
 }
@@ -276,7 +275,7 @@ class VersioncontrolTagController extends VersioncontrolEntityController {
 
   protected function buildQuery($ids, $conditions = array()) {
     $query = parent::buildQuery($ids, $conditions);
-    $this->buildQueryAttachBackend($query);
+    $query->condition('base', 'type', VERSIONCONTROL_LABEL_TAG);
     return $query;
   }
 }
@@ -285,24 +284,12 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
   protected $entityType = 'operation';
   protected $baseTable = 'versioncontrol_operations';
   protected $idKey = 'vc_op_id';
-
-  protected function buildQuery($ids, $conditions = array()) {
-    $query = parent::buildQuery($ids, $conditions);
-    $this->buildQueryAttachBackend($query);
-    return $query;
-  }
 }
 
 class VersioncontrolItemController extends VersioncontrolEntityController {
   protected $entityType = 'item';
   protected $baseTable = 'versioncontrol_items';
   protected $idKey = 'item_revision_id';
-
-  protected function buildQuery($ids, $conditions = array()) {
-    $query = parent::buildQuery($ids, $conditions);
-    $this->buildQueryAttachBackend($query);
-    return $query;
-  }
 }
 
 /**
@@ -322,9 +309,15 @@ abstract class VersioncontrolEntity {
    */
   protected $backend;
 
-//  public function __construct(VersioncontrolBackend $backend) {
-//    $this->backend = $backend;
-//  }
+  public function __construct($backend = NULL) {
+    if (!$backend instanceof VersioncontrolBackend) {
+      $this->backend = $backend;
+    }
+    else if (variable_get('versioncontrol_single_backend_mode', FALSE)) {
+      $backends = versioncontrol_get_backends();
+      $this->backend = reset($backends);
+    }
+  }
 
   /**
    * Pseudo-constructor method; call this method with an associative array of

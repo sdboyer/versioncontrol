@@ -76,11 +76,11 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
   }
 
   /**
-   * Retrieve known branches and/or tags in a repository from the database
-   * as an array of VersioncontrolLabel-descended objects.
+   * Load known branches in a repository from the database as an array of
+   * VersioncontrolBranch-descended objects.
    *
    * @param array $ids
-   *   An array of label ids. If given, only labels with one of these ids will
+   *   An array of branch ids. If given, only branches matching these ids will
    *   be returned.
    * @param array $conditions
    *   An associative array of additional conditions. These will be passed to
@@ -93,101 +93,40 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    * @return
    *   An associative array of label objects, keyed on their
    */
-  public function getLabels($ids = array(), $conditions = array()) {
-    if (!isset($this->controllers['labels'])) {
-      $this->controllers['labels'] = new VersioncontrolLabelController();
-      $this->controllers['labels']->setBackend($this->backend);
+  public function loadBranches($ids = array(), $conditions = array()) {
+    if (!isset($this->controllers['branch'])) {
+      $this->controllers['branch'] = new VersioncontrolBranchController();
+      $this->controllers['branch']->setBackend($this->backend);
     }
-    return $this->controllers['labels']->load($ids, $conditions);
+    $conditions['repo_id'] = $this->repo_id;
+    return $this->controllers['branch']->load($ids, $conditions);
   }
 
   /**
-   * Retrieve known branches and/or tags in a repository as a set of label arrays.
+   * Load known tags in a repository from the database as an array of
+   * VersioncontrolTag-descended objects.
    *
-   * @param $constraints
-   *   An optional array of constraints. If no constraints are given, all known
-   *   labels for a repository will be returned. Possible array elements are:
-   *
-   *   - 'label_ids': An array of label ids. If given, only labels with one of
-   *        these identifiers will be returned.
-   *   - 'type': Either VERSIONCONTROL_LABEL_BRANCH or
-   *        VERSIONCONTROL_LABEL_TAG. If given, only labels of this type
-   *        will be returned.
-   *   - 'names': An array of label names to search for. If given, only labels
-   *        matching one of these names will be returned. Matching is done with
-   *        SQL's LIKE operator, which means you can use the percentage sign
-   *        as wildcard.
+   * @param array $ids
+   *   An array of tag ids. If given, only tags matching these ids will be
+   *   returned.
+   * @param array $conditions
+   *   An associative array of additional conditions. These will be passed to
+   *   the entity controller and composed into the query. The array should be
+   *   key/value pairs with the field name as key, and desired field value as
+   *   value. The value may also be an array, in which case the IN operator is
+   *   used. For more complex requirements, FIXME finish!
+   *   @see VersioncontrolEntityController::buildQuery() .
    *
    * @return
-   *   An array of VersioncontrolLabel objects
-   *   If not a single known label in the given repository matches these
-   *   constraints, an empty array is returned.
+   *   An associative array of label objects, keyed on their
    */
-  public function OLDgetLabels($constraints = array()) {
-    $query = db_select('versioncontrol_labels', 'vcl')
-      ->condition('vcl.repo_id', $this->repo_id);
-    $and_constraints = array('repo_id = %d');
-    $params = array($this->repo_id);
-
-    // Filter by label id.
-    if (isset($constraints['label_ids'])) {
-      if (empty($constraints['label_ids'])) {
-        return array();
-      }
-      $or_constraints = array();
-      foreach ($constraints['label_ids'] as $label_id) {
-        $or_constraints[] = 'label_id = %d';
-        $params[] = $label_id;
-      }
-      $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
+  public function loadTags($ids = array(), $conditions = array()) {
+    if (!isset($this->controllers['tag'])) {
+      $this->controllers['tag'] = new VersioncontrolTagController();
+      $this->controllers['tag']->setBackend($this->backend);
     }
-
-    // Filter by label name.
-    if (isset($constraints['names'])) {
-      if (empty($constraints['names'])) {
-        return array();
-      }
-      $or_constraints = array();
-      foreach ($constraints['names'] as $name) {
-        $or_constraints[] = "name LIKE '%s'";
-        // Escape the percentage sign in order to get it to appear as '%' in the
-        // actual query, as db_query() uses the single '%' also for replacements
-        // like '%d' and '%s'.
-        $params[] = str_replace('%', '%%', $name);
-      }
-      $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-    }
-
-    // Filter by type.
-    if (isset($constraints['type'])) {
-      // There are only two types of labels (branches and tags), so a list of
-      // types doesn't make a lot of sense for this constraint. So, this one is
-      // simpler than the other ones.
-      $and_constraints[] = 'type = %d';
-      $params[] = $constraints['type'];
-    }
-
-    // All the constraints have been gathered, assemble them to a WHERE clause.
-    $and_constraints = implode(' AND ', $and_constraints);
-
-    // Execute the query.
-    $result = db_query('SELECT label_id, name, type FROM {versioncontrol_labels}
-                        WHERE '. $and_constraints .'
-                        ORDER BY label_id', $params);
-
-    // Assemble the return value.
-    $labels = array();
-    while ($label = db_fetch_array($result)) {
-      switch ($label['type']) {
-      case VERSIONCONTROL_LABEL_BRANCH:
-        $labels[] = new VersioncontrolBranch($label['name'], NULL, $label['label_id'], $this);
-        break;
-      case VERSIONCONTROL_LABEL_TAG:
-        $labels[] = new VersioncontrolTag($label['name'], NULL, $label['label_id'], $this);
-        break;
-      }
-    }
-    return $labels;
+    $conditions['repo_id'] = $this->repo_id;
+    return $this->controllers['tag']->load($ids, $conditions);
   }
 
   /**

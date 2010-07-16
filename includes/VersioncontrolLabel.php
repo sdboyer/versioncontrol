@@ -26,9 +26,9 @@ abstract class VersioncontrolLabel implements ArrayAccess {
   public $name;
 
   /**
-   * The repository where the label is located.
+   * The id of the repository with which this label is associated.
    *
-   * @var    VersioncontrolRepository
+   * @var int
    */
   public $repository;
 
@@ -53,17 +53,6 @@ abstract class VersioncontrolLabel implements ArrayAccess {
 
   // Associations
   // Operations
-
-  /**
-   * Constructor
-   */
-  public function __construct($type, $name, $action, $label_id = NULL, $repository = NULL) {
-    $this->type = $type;
-    $this->name = $name;
-    $this->action = $action;
-    $this->label_id = $label_id;
-    $this->repository = $repository;
-  }
 
   /**
    * Insert a label entry into the {versioncontrol_labels} table,
