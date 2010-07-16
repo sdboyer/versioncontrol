@@ -87,7 +87,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    *   the entity controller and composed into the query. The array should be
    *   key/value pairs with the field name as key, and desired field value as
    *   value. The value may also be an array, in which case the IN operator is
-   *   used. For more complex requirements,
+   *   used. For more complex requirements, FIXME finish!
    *   @see VersioncontrolEntityController::buildQuery() .
    *
    * @return
