@@ -34,9 +34,8 @@ abstract class VersioncontrolEntityController {
     'account'   => 'Account',
     'operation' => 'Operation',
     'item'      => 'Item',
-    'branch'    => 'Label',
-    'tag'       => 'Label',
-    'label'     => 'Label',
+    'branch'    => 'Branch',
+    'tag'       => 'Tag',
   );
 
   public function __construct() {
@@ -67,7 +66,7 @@ abstract class VersioncontrolEntityController {
     $this->entityCache = array();
   }
 
-  public function load($ids = array(), $conditions = array(), $callback = NULL) {
+  public function load($ids = array(), $conditions = array()) {
     $entities = array();
 
     // Create a new variable which is either a prepared version of the $ids
@@ -91,10 +90,6 @@ abstract class VersioncontrolEntityController {
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
       $query = $this->buildQuery($ids, $conditions);
-      // If a query modification callback was provided, fire it.
-      if (!is_null($callback) && function_exists($callback)) {
-        $callback($query, $ids, $conditions);
-      }
       $queried_entities = $query
         ->execute()
         ->fetchAllAssoc($this->idKey);
@@ -262,7 +257,19 @@ class VersioncontrolAccountController extends VersioncontrolEntityController {
   }
 }
 
-class VersioncontrolLabelController extends VersioncontrolEntityController {
+class VersioncontrolBranchController extends VersioncontrolEntityController {
+  protected $entityType = 'label';
+  protected $baseTable = 'versioncontrol_labels';
+  protected $idKey = 'label_id';
+
+  protected function buildQuery($ids, $conditions = array()) {
+    $query = parent::buildQuery($ids, $conditions);
+    $this->buildQueryAttachBackend($query);
+    return $query;
+  }
+}
+
+class VersioncontrolTagController extends VersioncontrolEntityController {
   protected $entityType = 'label';
   protected $baseTable = 'versioncontrol_labels';
   protected $idKey = 'label_id';

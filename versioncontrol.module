@@ -531,14 +531,13 @@ function versioncontrol_repository_load($repo_id) {
  *
  * @param $ids
  * @param $conditions
- * @param $callback
  */
-function versioncontrol_repository_load_multiple($ids = array(), $conditions = array(), $callback = NULL) {
+function versioncontrol_repository_load_multiple($ids = array(), $conditions = array()) {
   static $controller;
   if (!isset($controller)) {
     $controller = new VersioncontrolRepositoryController();
   }
-  return $controller->load($ids, $conditions, $callback);
+  return $controller->load($ids, $conditions);
 }
 
 /**
