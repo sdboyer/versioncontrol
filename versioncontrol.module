@@ -515,8 +515,8 @@ function versioncontrol_perm() {
  * versioncontrol_get_repository() will be a static class method then.)
  */
 function versioncontrol_repository_load($repo_id) {
-  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
-  return empty($repository) ? FALSE : $repository;
+  $repository = versioncontrol_repository_load_multiple(array($repo_id));
+  return empty($repository) ? FALSE : reset($repository);
 }
 
 /**
@@ -627,64 +627,6 @@ function versioncontrol_versioncontrol_authorization_methods() {
 
 function _versioncontrol_get_fallback_authorization_method() {
   return 'versioncontrol_admin';
-}
-
-/**
- * Assemble a list of query constraints given as string array that's
- * supposed to be imploded with an SQL "AND", and a $params array containing
- * the corresponding parameter values for all the '%d' and '%s' placeholders.
- */
-function _versioncontrol_construct_repository_constraints($constraints, $backends) {
-  $and_constraints = array();
-  $params = array();
-
-  // Filter out repositories of which the corresponding backend is not enabled,
-  // and handle the 'vcs' constraint at the same time.
-  $placeholders = array();
-  $vcses = array_keys($backends);
-  if (isset($constraints['vcs'])) {
-    $vcses = array_intersect($vcses, $constraints['vcs']);
-  }
-  if (empty($vcses)) {
-    $and_constraints[] = 'FALSE'; // no backends are enabled of those that have been requested
-  }
-  else {
-    foreach ($vcses as $vcs) {
-      $placeholders[] = "'%s'";
-      $params[] = $vcs;
-    }
-    $and_constraints[] = 'r.vcs IN ('. implode(',', $placeholders) .')';
-  }
-
-  if (isset($constraints['repo_ids'])) {
-    if (empty($constraints['repo_ids'])) {
-      $and_constraints[] = 'FALSE';
-    }
-    else {
-      $placeholders = array();
-      foreach ($constraints['repo_ids'] as $repo_id) {
-        $placeholders[] = '%d';
-        $params[] = $repo_id;
-      }
-      $and_constraints[] = 'r.repo_id IN ('. implode(',', $placeholders) .')';
-    }
-  }
-
-  if (isset($constraints['names'])) {
-    if (empty($constraints['names'])) {
-      $and_constraints[] = 'FALSE';
-    }
-    else {
-      $placeholders = array();
-      foreach ($constraints['names'] as $name) {
-        $placeholders[] = "'%s'";
-        $params[] = $name;
-      }
-      $and_constraints[] = 'r.name IN ('. implode(',', $placeholders) .')';
-    }
-  }
-
-  return array($and_constraints, $params);
 }
 
 /**
