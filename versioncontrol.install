@@ -171,6 +171,13 @@ function versioncontrol_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
+      'data' => array(
+        'description' => 'A serialized array of additional per-label data.',
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+      ),
     ),
     'unique keys' => array(
       'repo_id_name_type' => array('repo_id', 'name', 'type'),
@@ -370,7 +377,7 @@ function versioncontrol_schema() {
         'default' => '',
       ),
       'data' => array(
-        'description' => t('A serialized array of additional per-repository settings, mostly populated by third-party modules.'),
+        'description' => t('A serialized array of additional per-repository settings, mostly populated by backends.'),
         'type' => 'text',
         'size' => 'medium',
         'not null' => TRUE,
@@ -627,5 +634,23 @@ function versioncontrol_update_6300() {
   // no more url backend
   db_drop_field($ret, 'versioncontrol_repositories', 'url_backend');
 
+  return $ret;
+}
+
+/**
+ * Add a 'data' field to the labels table.
+ *
+ * @return array
+ */
+function versioncontrol_update_6301() {
+  $ret = array();
+  $data_spec = array(
+    'description' => 'A serialized array of additional per-label data.',
+    'type' => 'text',
+    'size' => 'medium',
+    'not null' => TRUE,
+    'serialize' => TRUE,
+  );
+  db_add_field($ret, 'versioncontrol_labels', 'data', $data_spec);
   return $ret;
 }
