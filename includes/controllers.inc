@@ -139,7 +139,7 @@ abstract class VersioncontrolEntityController {
   protected function buildQuery($ids, $conditions = array()) {
     $query = db_select($this->baseTable, 'base');
 
-    $query->addTag($this->entityType . '_load_multiple');
+    $query->addTag('versioncontrol_' . $this->entityType . '_load_multiple');
 
     // Add fields from the {entity} table.
     $entity_fields = drupal_schema_fields_sql($this->baseTable);
