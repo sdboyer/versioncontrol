@@ -1,0 +1,12 @@
+; $Id$
+name = "Version Control API Views Integration"
+description = "Makes Version Control API data available to Views"
+package = Version Control
+dependencies[] = versioncontrol
+dependencies[] = views
+
+; For theming functions
+dependencies[] = commitlog
+
+core = 6.x
+php = 5.2

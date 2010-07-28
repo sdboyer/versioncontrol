@@ -1,0 +1,45 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_views_api().
+ *
+ * @return array
+ */
+function versioncontrol_views_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'versioncontrol_views'),
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @return array
+ */
+function versioncontrol_views_theme() {
+  return array(
+    'versioncontrol_views_operation' => array(
+      'arguments' => array('operation' => NULL),
+      'template' => 'versioncontrol-views-operation',
+      'file' => 'versioncontrol_views.theme.inc',
+    ),
+  );
+}
+
+
+/**
+ * General helper function to get an array relating type id to string
+ */
+function versioncontrol_views_operation_types() {
+  require_once drupal_get_path('module', 'versioncontrol') . "/includes/VersioncontrolOperation.php";
+
+  return array(
+    VERSIONCONTROL_OPERATION_COMMIT => t('Commit'),
+    VERSIONCONTROL_OPERATION_BRANCH => t('Branch'),
+    VERSIONCONTROL_OPERATION_TAG    => t('Tag'),
+  );
+}
+
+
