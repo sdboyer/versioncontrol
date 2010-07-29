@@ -310,7 +310,7 @@ abstract class VersioncontrolEntity {
   protected $backend;
 
   public function __construct($backend = NULL) {
-    if (!$backend instanceof VersioncontrolBackend) {
+    if ($backend instanceof VersioncontrolBackend) {
       $this->backend = $backend;
     }
     else if (variable_get('versioncontrol_single_backend_mode', FALSE)) {
