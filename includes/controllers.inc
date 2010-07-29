@@ -11,8 +11,16 @@ abstract class VersioncontrolEntityController {
   protected $entityCache = array();
   protected $baseTable;
   protected $idKey;
-  protected $cache = TRUE;
   protected $backends = array();
+  /**
+   * An array of default options appended to options passed in by the caller.
+   * @var array
+   */
+  protected $defaultOptions = array(
+    'determine backend' => TRUE,
+    'may cache' => TRUE,
+    'callback' => NULL,
+  );
 
   /**
    * If set, contains an instance of a VersioncontrolBackend object; this object
@@ -66,8 +74,29 @@ abstract class VersioncontrolEntityController {
     $this->entityCache = array();
   }
 
-  public function load($ids = array(), $conditions = array()) {
+  /**
+   * Load, instanciate and cache a set of versioncontrol entities, according to
+   * specified parameters.
+   *
+   * This generic parent loader is extended by the entity-specific controllers;
+   * in most cases, this outermost method need not be overwritten as loading
+   * behavior can be sufficiently altered by overriding submethods.
+   *
+   * @param array $ids
+   *   An array of entity ids that should be loaded.
+   * @param array $conditions
+   *   Additional conditions that should be attached to the query and/or used to
+   *   filter results from the cache.
+   * @param array $options
+   *   A variable array of additional options, treated differently (or ignored)
+   *   by each backend. The only common element is 'callback', which allows
+   *   modules to define a callback that can be fired at the very end of the
+   *   querybuilding process to perform additional modifications.
+   * @return mixed
+   */
+  public function load($ids = array(), $conditions = array(), $options = array()) {
     $entities = array();
+    $options += $this->defaultOptions;
 
     // Create a new variable which is either a prepared version of the $ids
     // array for later comparison with the entity cache, or FALSE if no $ids
@@ -76,8 +105,8 @@ abstract class VersioncontrolEntityController {
     // database when all requested entities are loaded from cache.
     $passed_ids = !empty($ids) ? array_flip($ids) : FALSE;
     // Try to load entities from the static cache.
-    if ($this->cache) {
-      $entities += $this->cacheGet($ids, $conditions);
+    if ($options['may cache']) {
+      $entities += $this->cacheGet($ids, $conditions, $options);
       // If any entities were loaded, remove them from the ids still to load.
       if ($passed_ids) {
         $ids = array_keys(array_diff_key($passed_ids, $entities));
@@ -89,7 +118,7 @@ abstract class VersioncontrolEntityController {
     // load, if loading a revision, or if $conditions was passed without $ids.
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
-      $query = $this->buildQuery($ids, $conditions);
+      $query = $this->buildQuery($ids, $conditions, $options);
       $queried_entities = $query
         ->execute()
         ->fetchAllAssoc($this->idKey);
@@ -100,11 +129,9 @@ abstract class VersioncontrolEntityController {
       $entities += $built_entities;
     }
 
-    if ($this->cache) {
+    if ($options['may cache'] && !empty($built_entities)) {
       // Add entities to the cache.
-      if (!empty($built_entities)) {
-        $this->cacheSet($built_entities);
-      }
+      $this->cacheSet($built_entities);
     }
 
     // Ensure that the returned array is ordered the same as the original
@@ -136,7 +163,29 @@ abstract class VersioncontrolEntityController {
    * @return SelectQuery
    *   A SelectQuery object for loading the entity.
    */
-  protected function buildQuery($ids, $conditions = array()) {
+  protected function buildQuery($ids, $conditions, $options) {
+    $query = $this->buildQueryBase($ids, $conditions, $options);
+    $this->buildQueryConditions($query, $ids, $conditions, $options);
+
+    // Allow augmentation of the query by the current backend, if possible.
+    if ($this->backend instanceof VersioncontrolBackend) {
+      // Allow the current backend to augment the query as needed.
+      $this->backend->augmentEntitySelectQuery($query, $this->entityType);
+    }
+    // Or determine the backend for these entities in the query, unless query
+    // options tell us not to.
+    else if ($options['determine backend'] === TRUE) {
+      $this->queryAlterGetBackendType($query);
+    }
+
+    // If specified, allow a callback to modify the query.
+    if (isset($options['callback'])) {
+      call_user_func($options['callback'], $query, $ids, $conditions, $options);
+    }
+    return $query;
+  }
+
+  protected function buildQueryBase($ids, $conditions, $options) {
     $query = db_select($this->baseTable, 'base');
 
     $query->addTag('versioncontrol_' . $this->entityType . '_load_multiple');
@@ -145,37 +194,58 @@ abstract class VersioncontrolEntityController {
     $entity_fields = drupal_schema_fields_sql($this->baseTable);
 
     $query->fields('base', $entity_fields);
-
-    if ($ids) {
-      $query->condition("base.{$this->idKey}", $ids, 'IN');
-    }
-    if ($conditions) {
-      foreach ($conditions as $field => $value) {
-        // If a condition value uses this special structure, we know the
-        // requestor wants to do a complex condition with operator control.
-        if (is_array($value) && isset($value['values']) && isset($value['operator'])) {
-          $query->condition('base.' . $field, $value['values'], $value['operator']);
-        }
-        // Otherwise, we just pass the value straight in.
-        else {
-          $query->condition('base.' . $field, $value);
-        }
-      }
-    }
-    if ($this->backend instanceof VersioncontrolBackend) {
-      // Allow the current backend to augment the query as needed.
-      $this->backend->augmentEntitySelectQuery($query, $this->entityType);
-    }
-    else {
-      $this->queryAlterGetBackendType($query);
-    }
     return $query;
   }
 
-  protected function queryAlterGetBackendType($query) {
-    if (!isset($this->backend)) {
-      // Add a join to the repo table so we know which backend to use.
+  protected function buildQueryConditions(&$query, $ids, $conditions, $options) {
+    // Attach conditions, starting with any IDs that were passed in.
+    if ($ids) {
+      $query->condition("base.{$this->idKey}", $ids, 'IN');
+    }
+    // If provided, attach generic conditions.
+    if ($conditions) {
+      foreach ($conditions as $field => $value) {
+        $this->attachCondition($query, $field, $value);
+      }
+    }
+  }
+
+  /**
+   * Attach a condition to a query being built, given a field and a value for
+   * that field.
+   *
+   * @param SelectQuery $query
+   * @param string $field
+   * @param mixed $value
+   */
+  protected function attachCondition(&$query, $field, $value, $alias = 'base') {
+    // If a condition value uses this special structure, we know the
+    // requestor wants to do a complex condition with operator control.
+    if (is_array($value) && isset($value['values']) && isset($value['operator'])) {
+      $query->condition($alias . $field, $value['values'], $value['operator']);
+    }
+    // Otherwise, we just pass the value straight in.
+    else {
+      $query->condition($alias . $field, $value);
+    }
+  }
+
+  protected function addRepositoriesTable(&$query) {
+    $alias = NULL;
+    foreach ($query->getTables() as $table_data) {
+      if ($table_data['table'] == 'versioncontrol_repositories') {
+        $alias = $table_data['alias'];
+      }
+    }
+    if (is_null($alias)) {
       $query->join('versioncontrol_repositories', 'vcr', "vcr.repo_id = base.repo_id");
+    }
+    return $alias;
+  }
+
+  protected function queryAlterGetBackendType(&$query) {
+    if (!isset($this->backend)) {
+      $this->addRepositoriesTable($query);
       $query->addField('vcr', 'vcs');
     }
   }
@@ -208,7 +278,7 @@ abstract class VersioncontrolEntityController {
    * @param $conditions
    *   If set, return entities that match all of these conditions.
    */
-  protected function cacheGet($ids, $conditions = array()) {
+  protected function cacheGet($ids, $conditions, $options) {
     $entities = array();
     // Load any available entities from the internal cache.
     if (!empty($this->entityCache)) {
@@ -284,6 +354,46 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
   protected $entityType = 'operation';
   protected $baseTable = 'versioncontrol_operations';
   protected $idKey = 'vc_op_id';
+
+  protected function buildQueryConditions(&$query, $ids, $conditions, $options) {
+    // Attach conditions, starting with any IDs that were passed in.
+    if ($ids) {
+      $query->condition("base.{$this->idKey}", $ids, 'IN');
+    }
+
+    // The conditions passed in for Operations have special composition, and
+    // require their own handling.
+    foreach ($conditions as $type => $value) {
+      // FIXME this is a huge, horrendous, overengineered list of things that
+      // mostly are obsolete thanks to Views. keeping them all in here for now,
+      // but each should be either filled out or removed as this evolves.
+      switch ($type) {
+        case 'vcs':
+          $alias = $this->addRepositoriesTable($query);
+          $this->attachCondition($query, $type, $value, $alias);
+          break;
+
+        case 'repo_id':
+        case 'types':
+        case 'branches':
+        case 'tags':
+        case 'revisions':
+        case 'labels':
+        case 'paths':
+        case 'message':
+        case 'item_revision_ids':
+        case 'item_revisions':
+        case 'vc_op_ids':
+        case 'date_lower':
+        case 'date_upper':
+        case 'uids':
+        case 'usernames':
+        case 'user_relation':
+        default:
+          $this->attachCondition($query, $type, $value);
+      }
+    }
+  }
 }
 
 class VersioncontrolItemController extends VersioncontrolEntityController {
