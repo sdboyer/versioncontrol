@@ -222,11 +222,11 @@ abstract class VersioncontrolEntityController {
     // If a condition value uses this special structure, we know the
     // requestor wants to do a complex condition with operator control.
     if (is_array($value) && isset($value['values']) && isset($value['operator'])) {
-      $query->condition($alias . $field, $value['values'], $value['operator']);
+      $query->condition("$alias.$field", $value['values'], $value['operator']);
     }
     // Otherwise, we just pass the value straight in.
     else {
-      $query->condition($alias . $field, $value);
+      $query->condition("$alias.$field", $value);
     }
   }
 
@@ -327,25 +327,25 @@ class VersioncontrolAccountController extends VersioncontrolEntityController {
 }
 
 class VersioncontrolBranchController extends VersioncontrolEntityController {
-  protected $entityType = 'label';
+  protected $entityType = 'branch';
   protected $baseTable = 'versioncontrol_labels';
   protected $idKey = 'label_id';
 
-  protected function buildQuery($ids, $conditions = array()) {
-    $query = parent::buildQuery($ids, $conditions);
-    $query->condition('base', 'type', VERSIONCONTROL_LABEL_BRANCH);
+  protected function buildQueryConditions(&$query, $ids, $conditions, $options) {
+    parent::buildQueryConditions(&$query, $ids, $conditions, $options);
+    $this->attachCondition($query, 'type', VERSIONCONTROL_LABEL_BRANCH);
     return $query;
   }
 }
 
 class VersioncontrolTagController extends VersioncontrolEntityController {
-  protected $entityType = 'label';
+  protected $entityType = 'tag';
   protected $baseTable = 'versioncontrol_labels';
   protected $idKey = 'label_id';
 
-  protected function buildQuery($ids, $conditions = array()) {
-    $query = parent::buildQuery($ids, $conditions);
-    $query->condition('base', 'type', VERSIONCONTROL_LABEL_TAG);
+  protected function buildQueryConditions(&$query, $ids, $conditions, $options) {
+    parent::buildQueryConditions(&$query, $ids, $conditions, $options);
+    $this->attachCondition($query, 'type', VERSIONCONTROL_LABEL_TAG);
     return $query;
   }
 }
