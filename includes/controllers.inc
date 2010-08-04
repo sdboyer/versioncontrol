@@ -96,7 +96,7 @@ abstract class VersioncontrolEntityController {
    */
   public function load($ids = array(), $conditions = array(), $options = array()) {
     $entities = array();
-    $options += $this->defaultOptions;
+    $options += $this->defaultOptions + array('idkey' => $this->idKey);
 
     // Create a new variable which is either a prepared version of the $ids
     // array for later comparison with the entity cache, or FALSE if no $ids
@@ -121,7 +121,7 @@ abstract class VersioncontrolEntityController {
       $query = $this->buildQuery($ids, $conditions, $options);
       $queried_entities = $query
         ->execute()
-        ->fetchAllAssoc($this->idKey);
+        ->fetchAllAssoc($options['idkey']);
     }
 
     if (!empty($queried_entities)) {
@@ -140,7 +140,7 @@ abstract class VersioncontrolEntityController {
       // Remove any invalid ids from the array.
       $passed_ids = array_intersect_key($passed_ids, $entities);
       foreach ($entities as $entity) {
-        $passed_ids[$entity->{$this->idKey}] = $entity;
+        $passed_ids[$entity->{$options['idkey']}] = $entity;
       }
       $entities = $passed_ids;
     }
@@ -259,7 +259,9 @@ abstract class VersioncontrolEntityController {
    */
   protected function buildEntities(&$queried_entities) {
     $built = array();
-    foreach ($queried_entities as $id => $entity) {
+    foreach ($queried_entities as $entity) {
+      // Ensure we cache using the expected id key
+      $id = $entity->{$this->idKey};
       if (isset($this->backend)) {
         $built[$id] = $this->backend->buildObject($this->entityType, $entity);
       }
