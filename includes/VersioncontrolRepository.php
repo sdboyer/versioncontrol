@@ -75,6 +75,17 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
     return check_plain($repository->name);
   }
 
+  public function load($controller, $ids = array(), $conditions = array(), $options = array()) {
+    if (!isset($this->controllers[$controller])) {
+      $this->controllers[$controller] = new VersioncontrolBranchController();
+      $this->controllers[$controller]->setBackend($this->backend);
+      // Set the controller to instanciate with this repository by default.
+      $this->controllers[$controller]->defaultOptions['repository'] = $this;
+    }
+    $conditions['repo_id'] = $this->repo_id;
+    return $this->controllers[$controller]->load($ids, $conditions, $options);
+  }
+
   /**
    * Load known branches in a repository from the database as an array of
    * VersioncontrolBranch-descended objects.
@@ -94,12 +105,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    *   An associative array of label objects, keyed on their
    */
   public function loadBranches($ids = array(), $conditions = array(), $options = array()) {
-    if (!isset($this->controllers['branch'])) {
-      $this->controllers['branch'] = new VersioncontrolBranchController();
-      $this->controllers['branch']->setBackend($this->backend);
-    }
-    $conditions['repo_id'] = $this->repo_id;
-    return $this->controllers['branch']->load($ids, $conditions, $options);
+    return $this->load('branch', $ids, $conditions, $options);
   }
 
   /**
@@ -121,12 +127,12 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    *   An associative array of label objects, keyed on their
    */
   public function loadTags($ids = array(), $conditions = array(), $options = array()) {
-    if (!isset($this->controllers['tag'])) {
-      $this->controllers['tag'] = new VersioncontrolTagController();
-      $this->controllers['tag']->setBackend($this->backend);
-    }
-    $conditions['repo_id'] = $this->repo_id;
-    return $this->controllers['tag']->load($ids, $conditions, $options);
+    return $this->load('branch', $ids, $conditions, $options);
+  }
+
+  public function loadCommits($ids = array(), $conditions = array(), $options = array()) {
+    $conditions['type'] = VERSIONCONTROL_OPERATION_COMMIT;
+    return $this->load('branch', $ids, $conditions, $options);
   }
 
   /**

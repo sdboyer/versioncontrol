@@ -22,6 +22,7 @@ abstract class VersioncontrolEntityController {
     'determine backend' => TRUE,
     'may cache' => TRUE,
     'callback' => NULL,
+    'repository' => NULL,
   );
 
   /**
@@ -269,13 +270,19 @@ abstract class VersioncontrolEntityController {
    *
    * Empty here because each entity type needs to specify their process.
    *
+   * TODO We can use PDO to directly prepopulate objects, look into doing this: http://drupal.org/node/315092
+   *
    * @param array $queried_entities
    */
   protected function buildEntities(&$queried_entities) {
     $built = array();
     foreach ($queried_entities as $entity) {
-      // Ensure we cache using the expected id key
-      $id = $entity->{$this->idKey};
+      // Add the repository to the data, if provided.
+      if ($this->options['repository'] instanceof VersioncontrolRepository) {
+        // FIXME a lot of other code assumes that this always happens.
+        $entity->repository = $this->options['repository'];
+      }
+
       if (isset($this->backend)) {
         $built[$id] = $this->backend->buildObject($this->entityType, $entity);
       }
@@ -432,6 +439,8 @@ class VersioncontrolItemController extends VersioncontrolEntityController {
  */
 abstract class VersioncontrolEntity {
   protected $built = FALSE;
+
+  protected $repository;
 
   /**
    * An instance of the Backend factory used to create this object, passed in
