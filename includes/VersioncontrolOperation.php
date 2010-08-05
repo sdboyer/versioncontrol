@@ -226,6 +226,14 @@ abstract class VersioncontrolOperation implements ArrayAccess {
     $this->setLabels($labels);
   }
 
+  public function save() {
+    return isset($this->repo_id) ? $this->update() : $this->save();
+  }
+
+  public function buildSave(&$query) {
+
+  }
+
   /**
    * Insert a commit, branch or tag operation into the database, and call the
    * necessary module hooks. Only call this function after the operation has been

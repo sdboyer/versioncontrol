@@ -93,13 +93,13 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    * @return
    *   An associative array of label objects, keyed on their
    */
-  public function loadBranches($ids = array(), $conditions = array()) {
+  public function loadBranches($ids = array(), $conditions = array(), $options = array()) {
     if (!isset($this->controllers['branch'])) {
       $this->controllers['branch'] = new VersioncontrolBranchController();
       $this->controllers['branch']->setBackend($this->backend);
     }
     $conditions['repo_id'] = $this->repo_id;
-    return $this->controllers['branch']->load($ids, $conditions);
+    return $this->controllers['branch']->load($ids, $conditions, $options);
   }
 
   /**
@@ -120,13 +120,13 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    * @return
    *   An associative array of label objects, keyed on their
    */
-  public function loadTags($ids = array(), $conditions = array()) {
+  public function loadTags($ids = array(), $conditions = array(), $options = array()) {
     if (!isset($this->controllers['tag'])) {
       $this->controllers['tag'] = new VersioncontrolTagController();
       $this->controllers['tag']->setBackend($this->backend);
     }
     $conditions['repo_id'] = $this->repo_id;
-    return $this->controllers['tag']->load($ids, $conditions);
+    return $this->controllers['tag']->load($ids, $conditions, $options);
   }
 
   /**
@@ -156,6 +156,14 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
     return TRUE;
   }
 
+  public function save() {
+    return isset($this->repo_id) ? $this->update() : $this->save();
+  }
+
+  public function buildSave(&$query) {
+
+  }
+
   /**
    * Update a repository in the database, and call the necessary hooks.
    * The 'repo_id' and 'vcs' properties of the repository object must stay
@@ -175,14 +183,6 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
       array('@repository' => $this->name),
       WATCHDOG_NOTICE, l('view', 'admin/project/versioncontrol-repositories')
     );
-  }
-
-  /**
-   * Let child backend repo classes update information that _is not_ in
-   * VersioncontrolRepository::data without modifying general flow if
-   * necessary.
-   */
-  protected function _update() {
   }
 
   /**

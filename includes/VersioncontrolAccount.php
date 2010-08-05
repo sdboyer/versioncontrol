@@ -225,5 +225,7 @@ abstract class VersioncontrolAccount implements ArrayAccess {
   public function offsetUnset($offset) {
     unset($this->$offset);
   }
+  public function save() {}
+  public function buildSave(&$query) {}
 
 }

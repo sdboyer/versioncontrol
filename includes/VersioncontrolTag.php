@@ -76,7 +76,7 @@ class VersioncontrolTag extends VersioncontrolEntity {
   /**
    * Insert label to db
    */
-  protected function insert() {
+  public function insert() {
     if (isset($this->label_id)) {
       // The label already exists in the database, update the record.
       drupal_write_record('versioncontrol_labels', $this, 'label_id');
@@ -88,4 +88,7 @@ class VersioncontrolTag extends VersioncontrolEntity {
     }
     unset($this->repo_id);
   }
+  public function save() {}
+  public function update() {}
+  public function buildSave(&$query) {}
 }

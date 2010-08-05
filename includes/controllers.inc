@@ -458,4 +458,21 @@ abstract class VersioncontrolEntity {
     }
     $this->built = TRUE;
   }
+
+  abstract public function save();
+
+  abstract public function insert();
+
+  abstract public function update();
+
+  /**
+   * Attach this entity's data to a query that will insert it into the database.
+   *
+   * This method is separated out to avoid code duplication between insert &
+   * update queries, as well as making it possible to build up large queries
+   * rather than issuing lots of small, single insert queries.
+   *
+   * @param Query $query
+   */
+  abstract public function buildSave(&$query);
 }
