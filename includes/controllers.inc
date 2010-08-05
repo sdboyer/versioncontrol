@@ -129,6 +129,7 @@ abstract class VersioncontrolEntityController {
     }
 
     if (!empty($queried_entities)) {
+      $this->extendData($queried_entities);
       $built_entities = $this->buildEntities($queried_entities);
       $entities += $built_entities;
     }
@@ -264,6 +265,16 @@ abstract class VersioncontrolEntityController {
       $query->addField('vcr', 'vcs');
     }
   }
+
+  /**
+   * Optionally perform additional operations on the queried data before
+   * building the entities in VersioncontrolEntityController::buildEntities().
+   *
+   * @param array $queried_entities
+   *   An associative array of stdClass objects, keyed on $this->idKey and
+   *   containing the results of the query built by $this->buildQuery().
+   */
+  protected function extendData(&$queried_entities) {}
 
   /**
    * Transform the queried data into the appropriate object types.
