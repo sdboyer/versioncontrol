@@ -8,7 +8,7 @@
 /**
  * Stuff that happened in a repository at a specific time
  */
-abstract class VersioncontrolOperation implements ArrayAccess {
+abstract class VersioncontrolOperation extends VersioncontrolEntity {
   /**
    * db identifier
    *
@@ -111,20 +111,6 @@ abstract class VersioncontrolOperation implements ArrayAccess {
    * hasWriteAccess().
    */
   private static $error_messages = array();
-
-  /**
-   * Constructor
-   */
-  public function __construct($type, $committer, $date, $revision, $message, $author = NULL, $repository = NULL, $vc_op_id = NULL) {
-    $this->type = $type;
-    $this->committer = $committer;
-    $this->date = $date;
-    $this->revision = $revision;
-    $this->message = $message;
-    $this->author = (is_null($author))? $committer: $author;
-    $this->repository = $repository;
-    $this->vc_op_id = $vc_op_id;
-  }
 
   /**
    * Retrieve all items that were affected by an operation.

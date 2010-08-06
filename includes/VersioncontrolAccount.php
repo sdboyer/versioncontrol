@@ -10,7 +10,7 @@
  *
  * This class provides the way to manage users accounts.
  */
-abstract class VersioncontrolAccount implements ArrayAccess {
+abstract class VersioncontrolAccount extends VersioncontrolEntity {
   // Attributes
   /**
    * VCS's username
