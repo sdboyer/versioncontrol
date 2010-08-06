@@ -128,12 +128,12 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
    *   An associative array of label objects, keyed on their
    */
   public function loadTags($ids = array(), $conditions = array(), $options = array()) {
-    return $this->load('branch', $ids, $conditions, $options);
+    return $this->load('tag', $ids, $conditions, $options);
   }
 
   public function loadCommits($ids = array(), $conditions = array(), $options = array()) {
     $conditions['type'] = VERSIONCONTROL_OPERATION_COMMIT;
-    return $this->load('branch', $ids, $conditions, $options);
+    return $this->load('operation', $ids, $conditions, $options);
   }
 
   /**

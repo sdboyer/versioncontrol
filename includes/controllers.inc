@@ -461,6 +461,9 @@ class VersioncontrolItemController extends VersioncontrolEntityController {
 abstract class VersioncontrolEntity {
   protected $built = FALSE;
 
+  /**
+   * @var VersioncontrolRepository
+   */
   protected $repository;
 
   /**
