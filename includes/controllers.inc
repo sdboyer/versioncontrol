@@ -243,17 +243,36 @@ abstract class VersioncontrolEntityController {
     }
   }
 
-  protected function addRepositoriesTable(&$query) {
+  /**
+   * Add a new join to the in-progress query, if a join to that table does not
+   * already exist.
+   *
+   * @param SelectQuery $query
+   *   The query object to use.
+   * @param string $table
+   *   The real table name to be joined against.
+   * @param string $requested_alias
+   *   The requested alias to use.
+   * @param string $join_logic
+   *   The logic used to join the table to the query.
+   * @return string $alias
+   *   The alias of the joined table.
+   */
+  protected function addTable(&$query, $table, $requested_alias, $join_logic) {
     $alias = NULL;
     foreach ($query->getTables() as $table_data) {
-      if ($table_data['table'] == 'versioncontrol_repositories') {
+      if ($table_data['table'] == $table) {
         $alias = $table_data['alias'];
       }
     }
     if (is_null($alias)) {
-      $query->join('versioncontrol_repositories', 'vcr', "vcr.repo_id = base.repo_id");
+      $alias = $query->join($table, $requested_alias, $join_logic);
     }
     return $alias;
+  }
+
+  protected function addRepositoriesTable(&$query) {
+    return $this->addTable($query, 'versioncontrol_repositories', 'vcr', "vcr.repo_id = base.repo_id");
   }
 
   protected function queryAlterGetBackendType(&$query) {
@@ -444,6 +463,11 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
           $this->attachCondition($query, $type, $value);
       }
     }
+  }
+
+
+  protected function addLabelsTable(&$query) {
+    return $this->addTable($query, 'versioncontrol_operation_labels', 'vcol', "vcol.vc_op_id = base.vc_op_id");
   }
 }
 
