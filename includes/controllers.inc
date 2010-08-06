@@ -552,7 +552,7 @@ abstract class VersioncontrolEntity {
     foreach ($args as $prop => $value) {
       $this->$prop = $value;
     }
-    if (is_string($this->data)) {
+    if (!empty($this->data) && is_string($this->data)) {
       $this->data = unserialize($this->data);
     }
     $this->built = TRUE;
