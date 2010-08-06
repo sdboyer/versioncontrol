@@ -477,10 +477,10 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
    */
   protected function extendData(&$queried_entities) {
     parent::extendData($queried_entities);
-    $query = db_select('versioncontrol_operations', 'vco')
-      ->join('versioncontrol_operation_labels', 'vcol', 'vco.vc_op_id = vcol.vc_op_id')
-      ->join('versioncontrol_labels', 'vcl', 'vcol.label_id = vcl.label_id')
-      ->fields('vco', array('vc_op_id'))
+    $query = db_select('versioncontrol_operations', 'vco');
+    $query->join('versioncontrol_operation_labels', 'vcol', 'vco.vc_op_id = vcol.vc_op_id');
+    $query->join('versioncontrol_labels', 'vcl', 'vcol.label_id = vcl.label_id');
+    $query->fields('vco', array('vc_op_id'))
       ->fields('vcol', array('action'))
       ->fields('vcl'); // add all the label fields
     // build the constraint list
