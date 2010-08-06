@@ -77,7 +77,8 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity implements 
 
   public function load($controller, $ids = array(), $conditions = array(), $options = array()) {
     if (!isset($this->controllers[$controller])) {
-      $this->controllers[$controller] = new VersioncontrolBranchController();
+      $class = "Versioncontrol" . ucfirst($controller) . "Controller";
+      $this->controllers[$controller] = new $class();
       $this->controllers[$controller]->setBackend($this->backend);
       // Set the controller to instanciate with this repository by default.
       $this->controllers[$controller]->defaultOptions['repository'] = $this;

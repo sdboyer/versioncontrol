@@ -123,9 +123,7 @@ abstract class VersioncontrolEntityController {
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
       $query = $this->buildQuery($ids, $conditions);
-      $queried_entities = $query
-        ->execute()
-        ->fetchAllAssoc($this->idKey);
+      $queried_entities = $query->execute()->fetchAllAssoc($this->idKey);
     }
 
     if (!empty($queried_entities)) {
@@ -174,9 +172,8 @@ abstract class VersioncontrolEntityController {
     $query = $this->buildQueryBase($ids, $conditions);
     $this->buildQueryConditions($query, $ids, $conditions);
 
-    // Allow augmentation of the query by the current backend, if possible.
+    // Allow augmentation of the query by the current backend, if available.
     if ($this->backend instanceof VersioncontrolBackend) {
-      // Allow the current backend to augment the query as needed.
       $this->backend->augmentEntitySelectQuery($query, $this->entityType);
     }
     // Or determine the backend for these entities in the query, unless query
@@ -270,11 +267,21 @@ abstract class VersioncontrolEntityController {
    * Optionally perform additional operations on the queried data before
    * building the entities in VersioncontrolEntityController::buildEntities().
    *
+   * The default attaches a repository, if available, as every child class
+   * except repositories themselves use it.
+   *
    * @param array $queried_entities
    *   An associative array of stdClass objects, keyed on $this->idKey and
    *   containing the results of the query built by $this->buildQuery().
    */
-  protected function extendData(&$queried_entities) {}
+  protected function extendData(&$queried_entities) {
+    if ($this->options['repository'] instanceof VersioncontrolRepository) {
+      foreach ($queried_entities as $entity) {
+        // FIXME a lot of other code assumes that this always happens.
+        $entity->repository = $this->options['repository'];
+      }
+    }
+  }
 
   /**
    * Transform the queried data into the appropriate object types.
@@ -288,12 +295,7 @@ abstract class VersioncontrolEntityController {
   protected function buildEntities(&$queried_entities) {
     $built = array();
     foreach ($queried_entities as $entity) {
-      // Add the repository to the data, if provided.
-      if ($this->options['repository'] instanceof VersioncontrolRepository) {
-        // FIXME a lot of other code assumes that this always happens.
-        $entity->repository = $this->options['repository'];
-      }
-
+      $id = $entity->{$this->idKey};
       if (isset($this->backend)) {
         $built[$id] = $this->backend->buildObject($this->entityType, $entity);
       }
@@ -359,6 +361,14 @@ class VersioncontrolRepositoryController extends VersioncontrolEntityController 
   protected $entityType = 'repo';
   protected $baseTable = 'versioncontrol_repositories';
   protected $idKey = 'repo_id';
+
+  /**
+   * Override the parent with an empty method, as repository objects can't
+   * have a passed-in repository object.
+   *
+   * @param array $queried_entities
+   */
+  protected function extendData(&$queried_entities) {}
 }
 
 class VersioncontrolAccountController extends VersioncontrolEntityController {
