@@ -560,7 +560,7 @@ abstract class VersioncontrolEntity implements ArrayAccess {
 
   abstract public function save();
 
-  abstract public function insert();
+  // abstract public function insert();
 
   abstract public function update();
 
