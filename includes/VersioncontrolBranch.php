@@ -48,6 +48,18 @@ class VersioncontrolBranch extends VersioncontrolEntity {
   public $repo_id;
 
   /**
+   * Load commits from the database that are associated with this branch.
+   *
+   * @param array $ids
+   * @param array $conditions
+   * @param array $options
+   */
+  public function loadCommits($ids = array(), $conditions = array(), $options = array()) {
+    $conditions['branches'] = array($this->label_id);
+    return $this->repository->loadCommits($ids, $conditions, $options);
+  }
+
+  /**
    * Insert a tag entry into the {versioncontrol_labels} table, or retrieve the
    * same one that's already there.
    *
@@ -91,4 +103,23 @@ class VersioncontrolBranch extends VersioncontrolEntity {
   public function save() {}
   public function update() {}
   public function buildSave(&$query) {}
+
+  /**
+   * Delete this branch from the database, along with all related data.
+   */
+  public function delete() {
+    $commits_as_op = $this->loadCommits();
+    foreach($commits_as_op as $commit_op) {
+      $new_labels = array();
+      foreach($commit_op->labels as $label) {
+        if($label->type == VERSIONCONTROL_LABEL_BRANCH && $label->name != $this->name) {
+          $new_labels[] = $label;
+        }
+      }
+      $commit_op->updateLabels($new_labels);
+    }
+    db_delete('versioncontrol_labels')
+      // ->condition('repo_id', $this->repository->repo_id)
+      ->condition('label_id', $this->label_id);
+  }
 }
