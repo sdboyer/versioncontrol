@@ -367,6 +367,8 @@ abstract class VersioncontrolOperation extends VersioncontrolEntity {
   protected function _insert($operation_items) {
   }
 
+  public function update() {}
+
   /**
    * Delete a commit, a branch operation or a tag operation from the database,
    * and call the necessary hooks.
@@ -669,19 +671,4 @@ abstract class VersioncontrolOperation extends VersioncontrolEntity {
    *   anymore.
    */
   public abstract function getSelectedLabel($item);
-
-  //ArrayAccess interface implementation
-  public function offsetExists($offset) {
-    return isset($this->$offset);
-  }
-  public function offsetGet($offset) {
-    return $this->$offset;
-  }
-  public function offsetSet($offset, $value) {
-    $this->$offset = $value;
-  }
-  public function offsetUnset($offset) {
-    unset($this->$offset);
-  }
-
 }

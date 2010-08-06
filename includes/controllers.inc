@@ -510,7 +510,7 @@ class VersioncontrolItemController extends VersioncontrolEntityController {
  *
  * Basically just defines shared CRUD/loader-type behavior.
  */
-abstract class VersioncontrolEntity {
+abstract class VersioncontrolEntity implements ArrayAccess {
   protected $built = FALSE;
 
   /**
@@ -538,8 +538,8 @@ abstract class VersioncontrolEntity {
   }
 
   /**
-   * Pseudo-constructor method; call this method with an associative array of
-   * properties to be assigned to this object.
+   * Pseudo-constructor method; call this method with an associative array or
+   * stdClass object containing properties to be assigned to this object.
    *
    * @param array $args
    */
@@ -574,4 +574,19 @@ abstract class VersioncontrolEntity {
    * @param Query $query
    */
   abstract public function buildSave(&$query);
+
+  //ArrayAccess interface implementation FIXME soooooooo deprecated
+  public function offsetExists($offset) {
+    return isset($this->$offset);
+  }
+  public function offsetGet($offset) {
+    return $this->$offset;
+  }
+  public function offsetSet($offset, $value) {
+    $this->$offset = $value;
+  }
+  public function offsetUnset($offset) {
+    unset($this->$offset);
+  }
+
 }
