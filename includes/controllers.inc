@@ -439,24 +439,23 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
       // but each should be either filled out or removed as this evolves.
       switch ($type) {
         case 'vcs':
-          $alias = $this->addRepositoriesTable($query);
-          $this->attachCondition($query, $type, $value, $alias);
+          $this->attachCondition($query, $type, $value, $this->addRepositoriesTable($query));
           break;
 
-        case 'repo_id':
-        case 'types':
         case 'branches':
         case 'tags':
-        case 'revisions':
+          $this->attachCondition($query, 'label_id', $value, $this->addLabelsTable($query));
+          break;
+
+        case 'types': // XX
+        case 'revisions': // XX
         case 'labels':
         case 'paths':
-        case 'message':
+        case 'message': // XX
         case 'item_revision_ids':
         case 'item_revisions':
-        case 'vc_op_ids':
-        case 'date_lower':
-        case 'date_upper':
-        case 'uids':
+        case 'vc_op_ids': // XX
+        case 'uids': // XX
         case 'usernames':
         case 'user_relation':
         default:
@@ -468,6 +467,35 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
 
   protected function addLabelsTable(&$query) {
     return $this->addTable($query, 'versioncontrol_operation_labels', 'vcol', "vcol.vc_op_id = base.vc_op_id");
+  }
+
+  /**
+   * Attach a list of all associated labels to each operation in the set of
+   * operations being loaded.
+   *
+   * @param array $queried_entities
+   */
+  protected function extendData(&$queried_entities) {
+    parent::extendData($queried_entities);
+    $query = db_select('versioncontrol_operations', 'vco')
+      ->join('versioncontrol_operation_labels', 'vcol', 'vco.vc_op_id = vcol.vc_op_id')
+      ->join('versioncontrol_labels', 'vcl', 'vcol.label_id = vcl.label_id')
+      ->fields('vco', array('vc_op_id'))
+      ->fields('vcol', array('action'))
+      ->fields('vcl'); // add all the label fields
+    // build the constraint list
+    $operation_ids = array();
+    foreach ($queried_entities as $entity_data) {
+      $operation_ids[] = $entity_data->vc_op_id;
+    }
+    $ret = $query->condition('vco.vc_op_id', $operation_ids)
+      ->execute();
+
+    // Attach each label to the labels array on the respective operation data.
+    // TODO consider actually building the branch/tag objects.
+    foreach ($ret as $label) {
+      $queried_entities[$label->vc_op_id]->labels[$label->name] = $label;
+    }
   }
 }
 
