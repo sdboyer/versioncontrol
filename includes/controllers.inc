@@ -100,7 +100,7 @@ abstract class VersioncontrolEntityController {
   public function load($ids = array(), $conditions = array(), $options = array()) {
     $entities = array();
     // Place passed options in a property to make signatures less cumbersome.
-    $this->options = $options + $this->defaultOptions;
+    $this->options = $this->assembleOptions();
 
     // Create a new variable which is either a prepared version of the $ids
     // array for later comparison with the entity cache, or FALSE if no $ids
@@ -151,6 +151,21 @@ abstract class VersioncontrolEntityController {
     // Reset the options property to an empty array.
     $this->options = array();
     return $entities;
+  }
+
+  /**
+   * Return the options to be used for the duration of this load process.
+   *
+   * In the default this case, this simply appends the default options set on
+   * the class to the options passed in by the caller.
+   *
+   * @param array $options
+   *   The array of options passed in by the caller.
+   * @return array
+   *   The array of options that will actually be used for this individual load.
+   */
+  protected function assembleOptions($options) {
+    return $options + $this->defaultOptions;
   }
 
   /**
