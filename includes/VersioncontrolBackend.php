@@ -56,11 +56,38 @@ abstract class VersioncontrolBackend {
     );
   }
 
+  /**
+   * Instantiate and build a VersioncontrolEntity object using provided data.
+   *
+   * This is the central factory method that should ultimately be used to
+   * produce any VersioncontrolEntity-descended object for any backend. It does
+   * two important things:
+   *   - Provides a central point of control over what classes are used to
+   *     instanciate what string 'type', as dictated by $this->classes.
+   *   - Ensure the backend can handle the type requested, and that the class
+   *     it wants to instantiate descends from VersioncontrolEntity.
+   *
+   * @param string $type
+   *   A string indicating the type of entity to be created. Should match with a
+   *   key in $this->classes.
+   * @param mixed $data
+   *   Either a stdClass object or an associative array of data to build the
+   *   object with.
+   * @return VersioncontrolEntity
+   *   The instantiated and built object.
+   */
   public function buildObject($type, $data) {
+    // Ensure this backend knows how to handle the entity type requested
+    if (empty($this->classes[$type])) {
+      throw new Exception("Invalid entity type '$type' requested; not supported by current backend.");
+    }
+
+    // Ensure the class to create descends from VersioncontrolEntity.
     $class = $this->classes[$type];
     if (!is_subclass_of($class, 'VersioncontrolEntity')) {
-      throw new Exception('Invalid Versioncontrol entity class specified; all entity classes should have VersioncontrolEntity as a parent', $class);
+      throw new Exception('Invalid Versioncontrol entity class specified for building; all entity classes descend from VersioncontrolEntity.', $class);
     }
+
     $obj = new $this->classes[$type]($this);
     $obj->build($data);
     return $obj;
