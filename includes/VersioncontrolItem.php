@@ -96,15 +96,15 @@ abstract class VersioncontrolItem extends VersioncontrolEntity {
   /**
    * Constructor.
    */
-  public function __construct($type, $path, $revision, $action, $repository, $deleted = NULL, $item_revision_id = NULL) {
-    $this->type = $type;
-    $this->path = $path;
-    $this->revision = $revision;
-    $this->action = $action;
-    $this->repository = $repository;
-    $this->deleted = $deleted;
-    $this->item_revision_id = $item_revision_id;
-  }
+//  public function __construct($type, $path, $revision, $action, $repository, $deleted = NULL, $item_revision_id = NULL) {
+//    $this->type = $type;
+//    $this->path = $path;
+//    $this->revision = $revision;
+//    $this->action = $action;
+//    $this->repository = $repository;
+//    $this->deleted = $deleted;
+//    $this->item_revision_id = $item_revision_id;
+//  }
 
   /**
    * Return TRUE if the given item is an existing or an already deleted
