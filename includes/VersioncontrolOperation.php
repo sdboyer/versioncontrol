@@ -96,7 +96,7 @@ abstract class VersioncontrolOperation extends VersioncontrolEntity {
    *
    * @var    array
    */
-  public $labels;
+  public $labels = array();
 
   /**
    * The Drupal user id of the operation author, or 0 if no Drupal user
