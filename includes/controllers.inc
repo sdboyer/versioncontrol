@@ -408,7 +408,14 @@ class VersioncontrolRepositoryController extends VersioncontrolEntityController 
 class VersioncontrolAccountController extends VersioncontrolEntityController {
   protected $entityType = 'account';
   protected $baseTable = 'versioncontrol_accounts';
-  protected $idKey = 'repo_id'; // FIXME woah fugly. A lot needs to be reworked b/c it's got two primary keys
+  protected $idKey = 'uid';
+
+  protected function assembleOptions($options) {
+    $options = parent::assembleOptions($options);
+    // Ensure we do not cache, as caching is borked by the joint key.
+    $options['may cache'] = FALSE;
+    return $options;
+  }
 }
 
 class VersioncontrolBranchController extends VersioncontrolEntityController {
