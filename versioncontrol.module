@@ -1293,7 +1293,7 @@ function versioncontrol_fetch_item_commit_operations($repository, &$items) {
   if ($fetch_by_revision_id) {
     $commit_operations = VersioncontrolOperationCache::getInstance()->getCommits(array(
       'repo_ids' => array($repository['repo_id']),
-      'revisions' => array_keys($ids),
+      'revision' => array_keys($ids),
     ));
     // Associate the commit operations to the items.
     foreach ($items as $key => $item) {

@@ -470,7 +470,6 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
           break;
 
         case 'types': // XX
-        case 'revisions': // XX
         case 'labels':
         case 'paths':
         case 'message': // XX
