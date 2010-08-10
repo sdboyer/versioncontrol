@@ -17,7 +17,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    *
    * @var    string
    */
-  public $vcs_username;
+  public $username;
 
   /**
    * Drupal user id
@@ -32,16 +32,6 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    * @var    VersioncontrolRepository
    */
   public $repository;
-
-  // Operations
-  /**
-   * Constructor
-   */
-  public function __construct($vcs_username, $uid, $repository = NULL) {
-    $this->vcs_username = $vcs_username;
-    $this->uid = $uid;
-    $this->repository = $repository;
-  }
 
   /**
    * Return the most accurate guess on what the VCS username for a Drupal user
@@ -77,12 +67,12 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
   /**
    * Update a VCS user account in the database, and call the necessary
    * module hooks. The account repository and uid must stay the same values as
-   * the one given on account creation, whereas vcs_username and
+   * the one given on account creation, whereas username and
    * @p $additional_data may change.
    *
    * @param $username
    *   The VCS specific username (a string). Here we are using an explicit
-   *   parameter instead of taking the vcs_username data member to be able to
+   *   parameter instead of taking the username data member to be able to
    *   verify is it changed, there would be lots of operations, so we do not
    *   want to update them if it's not necessary.
    * @param $additional_data
@@ -91,14 +81,14 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    */
   public final function update($username, $additional_data = array()) {
     $repo_id = $this->repository->repo_id;
-    $username_changed = ($username != $this->vcs_username);
+    $username_changed = ($username != $this->username);
 
     if ($username_changed) {
-      $this->vcs_username = $username;
+      $this->username = $username;
       db_query("UPDATE {versioncontrol_accounts}
                 SET username = '%s'
                 WHERE uid = %d AND repo_id = %d",
-                $this->vcs_username, $this->uid, $repo_id
+                $this->username, $this->uid, $repo_id
       );
     }
 
@@ -113,17 +103,17 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
       db_query("UPDATE {versioncontrol_operations}
                 SET uid = %d
                 WHERE committer = '%s' AND repo_id = %d",
-                $this->uid, $this->vcs_username, $repo_id);
+                $this->uid, $this->username, $repo_id);
     }
 
     // Everything's done, let the world know about it!
     module_invoke_all('versioncontrol_account',
-      'update', $this->uid, $this->vcs_username, $this->repository, $additional_data
+      'update', $this->uid, $this->username, $this->repository, $additional_data
     );
 
     watchdog('special',
       'Version Control API: updated @username account in repository @repository',
-      array('@username' => $this->vcs_username, '@repository' => $this->repository->name),
+      array('@username' => $this->username, '@repository' => $this->repository->name),
       WATCHDOG_NOTICE, l('view', 'admin/project/versioncontrol-accounts')
     );
   }
@@ -145,7 +135,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
   public final function insert($additional_data = array()) {
     db_query(
       "INSERT INTO {versioncontrol_accounts} (uid, repo_id, username)
-       VALUES (%d, %d, '%s')", $this->uid, $this->repository->repo_id, $this->vcs_username
+       VALUES (%d, %d, '%s')", $this->uid, $this->repository->repo_id, $this->username
     );
 
     // Provide an opportunity for the backend to add its own stuff.
@@ -156,16 +146,16 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
     db_query("UPDATE {versioncontrol_operations}
               SET uid = %d
               WHERE author = '%s' AND repo_id = %d",
-              $this->uid, $this->vcs_username, $this->repository->repo_id);
+              $this->uid, $this->username, $this->repository->repo_id);
 
     // Everything's done, let the world know about it!
     module_invoke_all('versioncontrol_account',
-      'insert', $this->uid, $this->vcs_username, $this->repository, $additional_data
+      'insert', $this->uid, $this->username, $this->repository, $additional_data
     );
 
     watchdog('special',
-      'Version Control API: added @vcs_username account in repository @repository',
-      array('@vcs_username' => $this->vcs_username, '@repository' => $this->repository->name),
+      'Version Control API: added @username account in repository @repository',
+      array('@username' => $this->username, '@repository' => $this->repository->name),
       WATCHDOG_NOTICE, l('view', 'admin/project/versioncontrol-accounts')
     );
   }
@@ -189,7 +179,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
 
     // Announce deletion of the account before anything has happened.
     module_invoke_all('versioncontrol_account',
-      'delete', $this->uid, $this->vcs_username, $this->repository, array()
+      'delete', $this->uid, $this->username, $this->repository, array()
     );
 
     // Provide an opportunity for the backend to delete its own stuff.
@@ -201,7 +191,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
 
     watchdog('special',
       'Version Control API: deleted @username account in repository @repository',
-      array('@username' => $this->vcs_username, '@repository' => $this->repository->name),
+      array('@username' => $this->username, '@repository' => $this->repository->name),
       WATCHDOG_NOTICE, l('view', 'admin/project/versioncontrol-accounts')
     );
   }

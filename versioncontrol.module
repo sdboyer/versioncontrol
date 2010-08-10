@@ -479,7 +479,7 @@ function versioncontrol_user_accounts_title_callback($accounts) {
   $usernames = array();
   foreach ($accounts as $uid => $user_accounts) {
     foreach ($user_accounts as $repo_id => $account) {
-      $usernames[] = $account->vcs_username;
+      $usernames[] = $account->username;
     }
   }
   $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(

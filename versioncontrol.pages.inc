@@ -53,7 +53,7 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
   $account_usernames = array();
   foreach ($accounts as $uid => $usernames_by_repository) {
     foreach ($usernames_by_repository as $repo_id => $account) {
-      $account_usernames[$repo_id][] = $account->vcs_username;
+      $account_usernames[$repo_id][] = $account->username;
     }
   }
 
@@ -246,12 +246,12 @@ function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_userna
       $vcs_accounts = array($vcs_account);
 
       foreach ($vcs_accounts as $key => $vcs_account) {
-        if (isset($url_username) && $vcs_account->vcs_username != $url_username) {
+        if (isset($url_username) && $vcs_account->username != $url_username) {
           unset($vcs_accounts[$uid][$repo_id]);
           continue; // disregard usernames that don't match the URL constraints
         }
         $any_repo_id = $repo_id;
-        $selected_usernames[] = $vcs_account->vcs_username;
+        $selected_usernames[] = $vcs_account->username;
       }
     }
   }

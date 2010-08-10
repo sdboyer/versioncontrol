@@ -177,7 +177,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
         continue;
       }
       $formatted_username = theme('versioncontrol_account_username',
-        $uid, $account->vcs_username, $repositories[$repo_id],
+        $uid, $account->username, $repositories[$repo_id],
         array('prefer_drupal_username' => FALSE)
       );
       $repo_name = module_exists('commitlog')
@@ -188,7 +188,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
         '!username' => $formatted_username,
         '!repository' => $repo_name,
         '!edit' => l(t('edit'),
-          'user/'. $uid .'/edit/versioncontrol/'. $repo_id .'/'. drupal_urlencode($account->vcs_username)
+          'user/'. $uid .'/edit/versioncontrol/'. $repo_id .'/'. drupal_urlencode($account->username)
         ),
       ));
     }
