@@ -136,6 +136,10 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
     return $this->load('operation', $ids, $conditions, $options);
   }
 
+  public function loadAccounts($ids = array(), $conditions = array(), $options = array()) {
+    return $this->load('account', $ids, $conditions, $options);
+  }
+
   /**
    * Return TRUE if the account is authorized to commit in the actual
    * repository, or FALSE otherwise. Only call this function on existing
@@ -176,6 +180,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
    * The 'repo_id' and 'vcs' properties of the repository object must stay
    * the same as the ones given on repository creation,
    * whereas all other values may change.
+   * TODO refactor to use a custom-built db_insert().
    */
   public final function update() {
     drupal_write_record('versioncontrol_repositories', $this, 'repo_id');
@@ -191,6 +196,8 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
       WATCHDOG_NOTICE, l('view', 'admin/project/versioncontrol-repositories')
     );
   }
+
+  protected function _update() {}
 
   /**
    * Insert a repository into the database, and call the necessary hooks.
@@ -224,8 +231,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
    * VersioncontrolRepository::data without modifying general flow if
    * necessary.
    */
-  protected function _insert() {
-  }
+  protected function _insert() {}
 
   /**
    * Delete a repository from the database, and call the necessary hooks.
@@ -234,11 +240,22 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
    */
   public final function delete() {
     // Delete operations.
-    $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('repo_ids' => array($this->repo_id)));
-    foreach ($operations as $operation) {
-      $operation->delete();
+    $branches = $this->loadBranches();
+    foreach ($this->loadBranches as $branch) {
+      $branch->delete();
     }
-    unset($operations); // conserve memory, this might get quite large
+    foreach ($this->loadTags() as $tag) {
+      $tag->delete();
+    }
+    foreach ($this->loadCommits() as $commit) {
+      $commit->delete();
+    }
+
+    // $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('repo_ids' => array($this->repo_id)));
+    // foreach ($operations as $operation) {
+    //  $operation->delete();
+    // }
+    // unset($operations); // conserve memory, this might get quite large
 
     // Delete labels.
     db_query('DELETE FROM {versioncontrol_labels}
@@ -269,9 +286,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
     unset($placeholders); // ...likewise
 
     // Delete accounts.
-    $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(
-      array('repo_ids' => array($this->repo_id)), TRUE
-    );
+    $accounts = $this->loadAccounts();
     foreach ($accounts as $uid => $usernames_by_repository) {
       foreach ($usernames_by_repository as $repo_id => $account) {
         $account->delete();
@@ -299,24 +314,23 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
    * VersioncontrolRepository::data without modifying general flow if
    * necessary.
    */
-  protected function _delete() {
-  }
+  protected function _delete() {}
 
   /**
    * Export a repository's authenticated accounts to the version control system's
    * password file format.
    *
+   * FIXME this is TOTALLY broken, it calls itself.
    * @param $repository
    *   The repository array of the repository whose accounts should be exported.
    *
    * @return
    *   The plaintext result data which could be written into the password file
    *   as is.
+   *
    */
   public function exportAccounts() {
-    $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array(
-      'repo_ids' => array($this->repo_id),
-    ));
+    $accounts = $this->loadAccounts();
     return $repository->exportAccounts($accounts);
   }
 
@@ -399,9 +413,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
 
   /**
    * Retrieve the VCS username for a given Drupal user id in a specific
-   * repository. If you need more detailed querying functionality than
-   * this function provides, use
-   * VersioncontrolAccountCache::getInstance()->getAccounts() instead.
+   * repository.
    *
    * @param $username
    *   The VCS specific username (a string) corresponding to the Drupal
@@ -434,9 +446,7 @@ abstract class VersioncontrolRepository extends VersioncontrolEntity {
 
   /**
    * Retrieve the Drupal user id for a given VCS username in a specific
-   * repository. If you need more detailed querying functionality than
-   * this function provides, use
-   * VersioncontrolAccountCache::getInstance()->getAccounts() instead.
+   * repository.
    *
    * @param $uid
    *   The Drupal user id corresponding to the VCS account.

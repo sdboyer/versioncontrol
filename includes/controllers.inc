@@ -16,6 +16,11 @@ abstract class VersioncontrolEntityController {
 
   /**
    * An array of default options appended to options passed in by the caller.
+   *
+   * Child classes wishing to add to this should do so in an overridden
+   * constructor. These defaults exist as a property instead of a method so
+   * that external code can also modify it.
+   *
    * @var array
    */
   public $defaultOptions = array(
@@ -33,21 +38,6 @@ abstract class VersioncontrolEntityController {
    * @var VersioncontrolBackend
    */
   protected $backend;
-
-  /**
-   * A mapping of shortened strings used as keys to query building methods they
-   * should call.
-   *
-   * @var array
-   */
-  protected $typeMap = array(
-    'repo'      => 'Repository',
-    'account'   => 'Account',
-    'operation' => 'Operation',
-    'item'      => 'Item',
-    'branch'    => 'Branch',
-    'tag'       => 'Tag',
-  );
 
   public function __construct() {
     $backends = versioncontrol_get_backends();
@@ -67,10 +57,6 @@ abstract class VersioncontrolEntityController {
    */
   public function setBackend(VersioncontrolBackend $backend) {
     $this->backend = $backend;
-  }
-
-  public function resetBackend() {
-    $this->backend = NULL;
   }
 
   public function resetCache() {
@@ -123,7 +109,7 @@ abstract class VersioncontrolEntityController {
     if ($ids === FALSE || $ids || ($conditions && !$passed_ids)) {
       // Build the query.
       $query = $this->buildQuery($ids, $conditions);
-      $queried_entities = $query->execute()->fetchAllAssoc($this->idKey);
+      $queried_entities = $this->executeQuery($query);
     }
 
     if (!empty($queried_entities)) {
@@ -148,6 +134,9 @@ abstract class VersioncontrolEntityController {
       $entities = $passed_ids;
     }
 
+    // Allow child classes to make uncached modifications to the set of
+    // entities that will be returned.
+    $entities = $this->modifyReturn($entities);
     // Reset the options property to an empty array.
     $this->options = array();
     return $entities;
@@ -297,6 +286,10 @@ abstract class VersioncontrolEntityController {
     }
   }
 
+  protected function executeQuery(&$query) {
+    return $query->execute()->fetchAllAssoc($this->idKey);
+  }
+
   /**
    * Optionally perform additional operations on the queried data before
    * building the entities in VersioncontrolEntityController::buildEntities().
@@ -389,6 +382,20 @@ abstract class VersioncontrolEntityController {
     }
     $this->entityCache += $entities;
   }
+
+  /**
+   * Make a final set of modifications to the set of entities being returned
+   * on this load operation.
+   *
+   * Set-level modifications (that is, changes to the order or contents of the
+   * set of entities being returned) will not be cached in the controller's
+   * internal cache, so this is a good place to invoke hooks apply conditional
+   * filtering. Modifications to the objects themselves will persist in the
+   * cache, of course, as all objects are passed by reference.
+   *
+   * @param array $entities
+   */
+  protected function modifyReturn($entities) {}
 }
 
 class VersioncontrolRepositoryController extends VersioncontrolEntityController {
@@ -410,11 +417,38 @@ class VersioncontrolAccountController extends VersioncontrolEntityController {
   protected $baseTable = 'versioncontrol_accounts';
   protected $idKey = 'uid';
 
-  protected function assembleOptions($options) {
-    $options = parent::assembleOptions($options);
-    // Ensure we do not cache, as caching is borked by the joint key.
-    $options['may cache'] = FALSE;
-    return $options;
+  protected function executeQuery(&$query) {
+    $result = $query->execute();
+    if ($this->options['repository'] instanceof VersioncontrolRepository) {
+      return $result->fetchAllAssoc('uid');
+    }
+    else { // No repository specified, create a specially-keyed array
+      $return = array();
+      foreach ($result as $row) {
+        $return[$row->repo_id . '-' . $row->uid] = $row;
+        if (!isset($return[$row->uid])) {
+          $return[$row->uid] = array();
+        }
+        $return[$row->uid][$row->repo_id] = $row;
+      }
+      return $return;
+    }
+  }
+
+  protected function buildEntities(&$queried_entities) {
+    // If a repository is attached, the default parent implementation is fine
+    if ($this->options['repository'] instanceof VersioncontrolRepository) {
+      return parent::buildEntities($queried_entities);
+    }
+    // Otherwise we need special handling for our two-level array.
+    $this->idKey = 'repo_id';
+    $built = array();
+    foreach ($queried_entities as $uid => $repo_array) {
+      // Trick the parent into doing each of the inner arrays for us.
+      $built[$uid] = parent::buildEntities($repo_array);
+    }
+    $this->idKey = 'uid';
+    return $built;
   }
 }
 
@@ -484,7 +518,6 @@ class VersioncontrolOperationController extends VersioncontrolEntityController {
       }
     }
   }
-
 
   protected function addLabelsTable(&$query) {
     return $this->addTable($query, 'versioncontrol_operation_labels', 'vcol', "vcol.vc_op_id = base.vc_op_id");

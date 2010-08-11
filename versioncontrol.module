@@ -242,13 +242,11 @@ function versioncontrol_user($type, &$edit, &$user, $category = NULL) {
       return $categories;
 
     case 'delete':
-      $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($user->uid)), TRUE);
-      if (empty($accounts)) {
-        return;
-      }
-      foreach ($accounts as $uid => $usernames_by_repository) {
-        foreach ($usernames_by_repository as $repo_id => $account) {
-          $account->delete();
+      if ($accounts = versioncontrol_user_accounts_load($user->uid, TRUE)) {
+        foreach ($accounts as $uid => $usernames_by_repository) {
+          foreach ($usernames_by_repository as $repo_id => $account) {
+            $account->delete();
+          }
         }
       }
       break;
@@ -482,9 +480,7 @@ function versioncontrol_user_accounts_title_callback($accounts) {
       $usernames[] = $account->username;
     }
   }
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
-    'repo_ids' => array_keys(reset($accounts)), // a.k.a. list of account repo_ids
-  ));
+  $repositories = versioncontrol_repository_load_multiple(array_keys(reset($accounts)));
   $vcses = array();
   foreach ($repositories as $repository) {
     $vcses[$repository['vcs']] = TRUE;
@@ -508,11 +504,6 @@ function versioncontrol_perm() {
 
 /**
  * Menu wildcard loader for repository ids ('%versioncontrol_repository').
- * Use this only for menu paths - if you want to retrieve a repository with
- * your own code, use versioncontrol_get_repository() instead.
- * (Yeah, I know duplicate functions are bad. Hopefully we can sort this out
- * when repositories are made into real objects, as
- * versioncontrol_get_repository() will be a static class method then.)
  */
 function versioncontrol_repository_load($repo_id) {
   $repository = versioncontrol_repository_load_multiple(array($repo_id));
@@ -520,32 +511,30 @@ function versioncontrol_repository_load($repo_id) {
 }
 
 /**
- * Load multiple versioncontrol repositories, given provided constraints.
+ * Load multiple versioncontrol repositories, given provided conditions and
+ * options.
  *
- * This function has two operational modes. If more than one backend type is
- * present in the system, it defaults to the safer, backend-agnostic load
- * process. Otherwise, it routes the call to the appropriate backend class,
- * which takes care of the load call and caching the controller.
- *
- * FIXME Putting this in now, but honestly can't remember if it's the right
- * approach. Need to hack on the entities themselves to remember.
+ * This function statically caches a global VersioncontrolRepositoryController
+ * entity controller, and uses it to load repositories.
  *
  * @param $ids
  * @param $conditions
+ * @param $options
+ * @return array
+ *
  */
-function versioncontrol_repository_load_multiple($ids = array(), $conditions = array()) {
+function versioncontrol_repository_load_multiple($ids = array(), $conditions = array(), $options = array()) {
   static $controller;
   if (!isset($controller)) {
     $controller = new VersioncontrolRepositoryController();
   }
-  return $controller->load($ids, $conditions);
+  return $controller->load($ids, $conditions, $options);
 }
 
 /**
  * Menu wildcard loader for '%versioncontrol_user_accounts':
- * Load all VCS accounts of a given user (in the format that
- * VersioncontrolAccountCache::getInstance()->getAccounts() returns) and return either that
- * or FALSE if no VCS accounts exist for this user.
+ * Load and return all VCS accounts of a given user, or FALSE if no accounts
+ * exist for that user.
  *
  * @param $uid
  *   Drupal user id of the user whose VCS accounts should be loaded.
@@ -554,8 +543,16 @@ function versioncontrol_repository_load_multiple($ids = array(), $conditions = a
  *   API documentation of that function.
  */
 function versioncontrol_user_accounts_load($uid, $include_unauthorized = FALSE) {
-  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($uid)), $include_unauthorized);
+  $accounts = versioncontrol_user_accounts_load_multiple(array($uid), array(), array('include unauthorized' => $include_unauthorized));
   return empty($accounts) ? FALSE : $accounts;
+}
+
+function versioncontrol_user_accounts_load_multiple($ids = array(), $conditions = array(), $options = array()) {
+  static $controller;
+  if (!isset($controller)) {
+    $controller = new VersioncontrolAccountController();
+  }
+  return $controller->load($ids, $conditions, $options);
 }
 
 
@@ -1291,10 +1288,7 @@ function versioncontrol_fetch_item_commit_operations($repository, &$items) {
   }
 
   if ($fetch_by_revision_id) {
-    $commit_operations = VersioncontrolOperationCache::getInstance()->getCommits(array(
-      'repo_ids' => array($repository['repo_id']),
-      'revision' => array_keys($ids),
-    ));
+    $commit_operations = $repository->loadCommits(array(), array('revision' => array_keys($ids)));
     // Associate the commit operations to the items.
     foreach ($items as $key => $item) {
       foreach ($commit_operations as $commit_operation) {
@@ -1314,9 +1308,7 @@ function versioncontrol_fetch_item_commit_operations($repository, &$items) {
     while ($opitem = db_fetch_object($result)) {
       $operation_item_mapping[$opitem->vc_op_id][] = $opitem->item_revision_id;
     }
-    $commit_operations = VersioncontrolOperationCache::getInstance()->getCommits(array(
-      'vc_op_ids' => array_keys($operation_item_mapping),
-    ));
+    $commit_operations = $repository->loadCommits(array_keys($operation_item_mapping));
 
     // Associate the commit operations to the items.
     foreach ($commit_operations as $commit_operation) {
@@ -1552,7 +1544,7 @@ function theme_versioncontrol_user_statistics_item_list($statistics, $more_link 
  */
 function theme_versioncontrol_user_statistics_account($user_stats) {
   if (isset($user_stats->repo_id) && isset($user_stats->username)) {
-    $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($user_stats->repo_id);
+    $repository = versioncontrol_repository_load($user_stats->repo_id);
     return theme('versioncontrol_account_username',
       $user_stats->uid, $user_stats->username, $repository,
       array('include_repository_name' => TRUE)
@@ -1639,7 +1631,7 @@ function versioncontrol_user_autocomplete($repo_id, $string = '') {
 
   while ($user = db_fetch_object($result)) {
     if (!isset($repository)) {
-      $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
+      $repository = versioncontrol_repository_load($repo_id);
     }
     if ($repository->isAccountAuthorized($user->uid)) {
       $matches[$user->name] = check_plain($user->name);

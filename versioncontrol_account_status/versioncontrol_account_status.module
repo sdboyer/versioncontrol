@@ -709,7 +709,7 @@ function versioncontrol_account_status_form_alter_account_edit(&$form, $status_d
     $form['#send_application_mails'] = TRUE;
 
     if (!isset($form['overview'])) {
-      $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($status_data['repo_id']);
+      $repository = versioncontrol_repository_load($status_data['repo_id']);
       $registration_message = isset($repository['data']['versioncontrol']['registration_message'])
         ? $repository['data']['versioncontrol']['registration_message']
         : '';
@@ -972,7 +972,7 @@ function _versioncontrol_account_status_send_application_mails($status_data, $is
 
   $params = array(
     'applicant_user' => $applicant,
-    'repository' => VersioncontrolRepositoryCache::getInstance()->getRepository($status_data['repo_id']),
+    'repository' => versioncontrol_repository_load($status_data['repo_id']),
     'motivation_message' => $status_data['motivation'],
     'status' => $status_data['status'],
     'is_reapplication' => $is_reapplication,
@@ -1009,7 +1009,7 @@ function _versioncontrol_account_status_send_status_update_mails($status_data, $
   $params = array(
     'admin_user' => drupal_clone($user),
     'applicant_user' => $applicant,
-    'repository' => VersioncontrolRepositoryCache::getInstance()->getRepository($status_data['repo_id']),
+    'repository' => versioncontrol_repository_load($status_data['repo_id']),
     'admin_message' => $admin_message,
     'status' => $status_data['status'],
     'motivation_message' => $status_data['motivation'],

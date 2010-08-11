@@ -420,18 +420,10 @@ abstract class VersioncontrolOperation extends VersioncontrolEntity {
    *   but unauthorized users. If TRUE, all known users are mapped to their uid.
    */
   private function fill($include_unauthorized = FALSE) {
-    // If not already there, retrieve the full repository object.
-    // FIXME: take one always set member, not sure if root is one | set other condition here
-    if (!isset($this->repository->root) && isset($this->repo_id)) {
-      $this->repository = VersioncontrolRepositoryCache::getInstance()->getRepository($this->repository->repo_id);
-      unset($this->repo_id);
-    }
-
     // If not already there, retrieve the Drupal user id of the committer.
     if (!isset($this->author)) {
-      $uid = $this->repository->getAccountUidForUsername(
-        $this->author, $include_unauthorized
-      );
+      $account = $this->repository->getAccounts(array(), array('username' => $this->author));
+
       // If no uid could be retrieved, blame the commit on user 0 (anonymous).
       $this->author = isset($this->author) ? $this->author : 0;
     }
