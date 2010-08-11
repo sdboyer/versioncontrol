@@ -502,6 +502,8 @@ function versioncontrol_perm() {
   );
 }
 
+// API functions start here.
+
 /**
  * Menu wildcard loader for repository ids ('%versioncontrol_repository').
  */
@@ -554,9 +556,6 @@ function versioncontrol_user_accounts_load_multiple($ids = array(), $conditions 
   }
   return $controller->load($ids, $conditions, $options);
 }
-
-
-// API functions start here.
 
 /**
  * Get a list of all backends with its detailed information.
@@ -972,7 +971,6 @@ function versioncontrol_path_contains($parent_path, $child_path) {
   }
   return (strpos($child_path, $parent_path) === 0);
 }
-
 
 /**
  * Return a the username of a VCS account.
