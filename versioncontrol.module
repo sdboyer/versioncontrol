@@ -126,7 +126,6 @@ function versioncontrol_autoload_info() {
   // Add classes in self-named files
   $selfnamed = array(
     'VersioncontrolAccount',
-    'VersioncontrolAccountCache',
     'VersioncontrolBackend',
     'VersioncontrolBranch',
     'VersioncontrolItem',
@@ -134,7 +133,6 @@ function versioncontrol_autoload_info() {
     'VersioncontrolOperation',
     'VersioncontrolOperationCache',
     'VersioncontrolRepository',
-    'VersioncontrolRepositoryCache',
     'VersioncontrolTag',
   );
   foreach ($selfnamed as $name) {

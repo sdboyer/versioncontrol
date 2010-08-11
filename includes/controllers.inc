@@ -86,7 +86,7 @@ abstract class VersioncontrolEntityController {
   public function load($ids = array(), $conditions = array(), $options = array()) {
     $entities = array();
     // Place passed options in a property to make signatures less cumbersome.
-    $this->options = $this->assembleOptions();
+    $this->options = $this->assembleOptions($options);
 
     // Create a new variable which is either a prepared version of the $ids
     // array for later comparison with the entity cache, or FALSE if no $ids
@@ -395,7 +395,9 @@ abstract class VersioncontrolEntityController {
    *
    * @param array $entities
    */
-  protected function modifyReturn($entities) {}
+  protected function modifyReturn($entities) {
+    return $entities;
+  }
 }
 
 class VersioncontrolRepositoryController extends VersioncontrolEntityController {
@@ -449,6 +451,10 @@ class VersioncontrolAccountController extends VersioncontrolEntityController {
     }
     $this->idKey = 'uid';
     return $built;
+  }
+
+  protected function modifyReturn($entities) {
+    // TODO implement the authorization stuff here...if at all.
   }
 }
 
@@ -617,7 +623,7 @@ abstract class VersioncontrolEntity implements ArrayAccess {
 
   // abstract public function insert();
 
-  abstract public function update();
+  // abstract public function update();
 
   /**
    * Attach this entity's data to a query that will insert it into the database.

@@ -78,6 +78,9 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    * @param $additional_data
    *   An array of additional author information. Modules can fill this array
    *   by implementing hook_versioncontrol_account_submit().
+   *
+   * FIXME the function sig here is incompatible with VersioncontrolEntity, and
+   * needs the logic needs to be fixed to suit.
    */
   public final function update($username, $additional_data = array()) {
     $repo_id = $this->repository->repo_id;
@@ -109,7 +112,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
     // Everything's done, let the world know about it!
     module_invoke_all('versioncontrol_account',
       'update', $this->uid, $this->username, $this->repository, $additional_data
-    );
+    ); // FIXME the additional_data approach here is now wrong.
 
     watchdog('special',
       'Version Control API: updated @username account in repository @repository',
@@ -131,6 +134,8 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    * @param $additional_data
    *   An array of additional author information. Modules can fill this array
    *   by implementing hook_versioncontrol_account_submit().
+   *
+   * FIXME function sig & logic incompatibilities with VersioncontrolEntity
    */
   public final function insert($additional_data = array()) {
     db_query(
@@ -142,7 +147,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
     $this->_insert($additional_data);
 
     // Update the operations table.
-    // FIXME differenciate author and commiter
+    // FIXME differentiate author and commiter
     db_query("UPDATE {versioncontrol_operations}
               SET uid = %d
               WHERE author = '%s' AND repo_id = %d",
@@ -201,4 +206,7 @@ abstract class VersioncontrolAccount extends VersioncontrolEntity {
    */
   protected function _delete() {
   }
+
+  public function save() {}
+  public function buildSave(&$query) {}
 }

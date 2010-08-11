@@ -621,7 +621,7 @@ function versioncontrol_update_6300() {
   db_add_field($ret, 'versioncontrol_operations', 'committer', $committer_spec);
 
   // urls to data array
-  $repos = versioncontrol_repository_load_multiple();
+  $repos = versioncontrol_repository_load_multiple(FALSE);
   $result = db_query('SELECT * FROM {versioncontrol_repository_urls}');
   while ($urls = db_fetch_array($result)) {
     $repo_id = $urls['repo_id'];
