@@ -2,6 +2,13 @@
 
 versioncontrol 6.x-2.x
 ======================
+- Add a 'data' field to the labels tabel, so that backends can more easily
+  plug in additional data on their labels.
+- Introduced 'single backend mode' $conf flag, a global flag indicating
+  whether or not multiple backends are enabled. Useful because single backend
+  mode allows streamlined querying and operations.
+- Created a repository multiple loader function, fashioned after similar such
+  entity multiloaders in D7.
 - Introduced dependency on autoload, both for future dbtng dependency and to
   assist with managing all the classes in the vcsapi system itself.
 - Major rewrite of the 1.x branch in OOP.

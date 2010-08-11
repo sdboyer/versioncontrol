@@ -126,7 +126,6 @@ function versioncontrol_autoload_info() {
   // Add classes in self-named files
   $selfnamed = array(
     'VersioncontrolAccount',
-    'VersioncontrolAccountCache',
     'VersioncontrolBackend',
     'VersioncontrolBranch',
     'VersioncontrolItem',
@@ -134,7 +133,6 @@ function versioncontrol_autoload_info() {
     'VersioncontrolOperation',
     'VersioncontrolOperationCache',
     'VersioncontrolRepository',
-    'VersioncontrolRepositoryCache',
     'VersioncontrolTag',
   );
   foreach ($selfnamed as $name) {
@@ -160,6 +158,24 @@ function versioncontrol_autoload_info() {
     );
   }
 
+  // Add controllers.inc contents
+  $controllers = array(
+    'VersioncontrolEntityController',
+    'VersioncontrolRepositoryController',
+    'VersioncontrolAccountController',
+    'VersioncontrolTagController',
+    'VersioncontrolBranchController',
+    'VersioncontrolOperationController',
+    'VersioncontrolItemController',
+    'VersioncontrolEntity',
+  );
+
+  foreach ($controllers as $name) {
+    $items[$name] = array(
+      'file' => "includes/controllers.inc",
+    );
+  }
+
   // Add special cases
   $items['VersioncontrolRepositoryUrlHandler'] = array(
     'file' => 'includes/VersioncontrolRepository.php',
@@ -174,6 +190,16 @@ function versioncontrol_autoload_info() {
   );
 
   return $items;
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ *
+ * Triggers backend mode determination.
+ *
+ */
+function versioncontrol_flush_caches() {
+  versioncontrol_determine_backend_mode();
 }
 
 /**
@@ -214,13 +240,11 @@ function versioncontrol_user($type, &$edit, &$user, $category = NULL) {
       return $categories;
 
     case 'delete':
-      $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($user->uid)), TRUE);
-      if (empty($accounts)) {
-        return;
-      }
-      foreach ($accounts as $uid => $usernames_by_repository) {
-        foreach ($usernames_by_repository as $repo_id => $account) {
-          $account->delete();
+      if ($accounts = versioncontrol_user_accounts_load($user->uid, TRUE)) {
+        foreach ($accounts as $uid => $usernames_by_repository) {
+          foreach ($usernames_by_repository as $repo_id => $account) {
+            $account->delete();
+          }
         }
       }
       break;
@@ -415,6 +439,16 @@ function versioncontrol_user_access($account = NULL) {
 }
 
 /**
+ * Determine if we are operating in single or multi-backend mode, and set a
+ * $conf variable accordingly.
+ *
+ */
+function versioncontrol_determine_backend_mode() {
+  $single = count(versioncontrol_get_backends()) <= 1;
+  variable_set('versioncontrol_single_backend_mode', $single);
+}
+
+/**
  * Custom access callback, determining if the current user (or the one given
  * in @p $account, if set) is permitted to view version control account
  * settings of the user specified the first user id in @p $vcs_accounts.
@@ -441,12 +475,10 @@ function versioncontrol_user_accounts_title_callback($accounts) {
   $usernames = array();
   foreach ($accounts as $uid => $user_accounts) {
     foreach ($user_accounts as $repo_id => $account) {
-      $usernames[] = $account->vcs_username;
+      $usernames[] = $account->username;
     }
   }
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
-    'repo_ids' => array_keys(reset($accounts)), // a.k.a. list of account repo_ids
-  ));
+  $repositories = versioncontrol_repository_load_multiple(array_keys(reset($accounts)));
   $vcses = array();
   foreach ($repositories as $repository) {
     $vcses[$repository['vcs']] = TRUE;
@@ -468,24 +500,41 @@ function versioncontrol_perm() {
   );
 }
 
+// API functions start here.
+
 /**
  * Menu wildcard loader for repository ids ('%versioncontrol_repository').
- * Use this only for menu paths - if you want to retrieve a repository with
- * your own code, use versioncontrol_get_repository() instead.
- * (Yeah, I know duplicate functions are bad. Hopefully we can sort this out
- * when repositories are made into real objects, as
- * versioncontrol_get_repository() will be a static class method then.)
  */
 function versioncontrol_repository_load($repo_id) {
-  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
-  return empty($repository) ? FALSE : $repository;
+  $repository = versioncontrol_repository_load_multiple(array($repo_id));
+  return empty($repository) ? FALSE : reset($repository);
+}
+
+/**
+ * Load multiple versioncontrol repositories, given provided conditions and
+ * options.
+ *
+ * This function statically caches a global VersioncontrolRepositoryController
+ * entity controller, and uses it to load repositories.
+ *
+ * @param $ids
+ * @param $conditions
+ * @param $options
+ * @return array
+ *
+ */
+function versioncontrol_repository_load_multiple($ids = array(), $conditions = array(), $options = array()) {
+  static $controller;
+  if (!isset($controller)) {
+    $controller = new VersioncontrolRepositoryController();
+  }
+  return $controller->load($ids, $conditions, $options);
 }
 
 /**
  * Menu wildcard loader for '%versioncontrol_user_accounts':
- * Load all VCS accounts of a given user (in the format that
- * VersioncontrolAccountCache::getInstance()->getAccounts() returns) and return either that
- * or FALSE if no VCS accounts exist for this user.
+ * Load and return all VCS accounts of a given user, or FALSE if no accounts
+ * exist for that user.
  *
  * @param $uid
  *   Drupal user id of the user whose VCS accounts should be loaded.
@@ -494,35 +543,46 @@ function versioncontrol_repository_load($repo_id) {
  *   API documentation of that function.
  */
 function versioncontrol_user_accounts_load($uid, $include_unauthorized = FALSE) {
-  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($uid)), $include_unauthorized);
+  $accounts = versioncontrol_user_accounts_load_multiple(array($uid), array(), array('include unauthorized' => $include_unauthorized));
   return empty($accounts) ? FALSE : $accounts;
 }
 
-
-// API functions start here.
+function versioncontrol_user_accounts_load_multiple($ids = array(), $conditions = array(), $options = array()) {
+  static $controller;
+  if (!isset($controller)) {
+    $controller = new VersioncontrolAccountController();
+  }
+  return $controller->load($ids, $conditions, $options);
+}
 
 /**
  * Get a list of all backends with its detailed information.
  *
- * @return
- *   A structured array containing information about all known backends.
- *   Array keys are the unique string identifier of the version control
- *   system.
- *   The corresponding array values are VersioncontrolBackend children
- *   objects.
+ * @param string $backend
+ *   Optional; the backend type's backend object to be returned. If not
+ *   specified, all backend types are returned.
  *
- *   If no single backends can be found, an empty array is returned.
+ * @return mixed
+ *   Either a structured array containing backend objects from each backend,
+ *   keyed on the unique string identifier corresponding to that backend (e.g.
+ *   'cvs', 'svn').
+ *   The backend objects are all descendents of VersioncontrolBackend.
  *
- *   A real-life example of such a result array can be found
- *   in the FakeVCS example module.
+ *   An example of the result array can be found in the FakeVCS example module.
  */
-function versioncontrol_get_backends() {
+function versioncontrol_get_backends($backend = '') {
   static $backends;
 
   if (!isset($backends)) {
     $backends = module_invoke_all('versioncontrol_backends');
   }
-  return $backends;
+
+  if (!empty($backend)) {
+    return isset($backends[$backend]) ? $backends[$backend] : FALSE;
+  }
+  else {
+    return $backends;
+  }
 }
 
 /**
@@ -562,479 +622,6 @@ function versioncontrol_versioncontrol_authorization_methods() {
 function _versioncontrol_get_fallback_authorization_method() {
   return 'versioncontrol_admin';
 }
-
-/**
- * Assemble a list of query constraints given as string array that's
- * supposed to be imploded with an SQL "AND", and a $params array containing
- * the corresponding parameter values for all the '%d' and '%s' placeholders.
- */
-function _versioncontrol_construct_repository_constraints($constraints, $backends) {
-  $and_constraints = array();
-  $params = array();
-
-  // Filter out repositories of which the corresponding backend is not enabled,
-  // and handle the 'vcs' constraint at the same time.
-  $placeholders = array();
-  $vcses = array_keys($backends);
-  if (isset($constraints['vcs'])) {
-    $vcses = array_intersect($vcses, $constraints['vcs']);
-  }
-  if (empty($vcses)) {
-    $and_constraints[] = 'FALSE'; // no backends are enabled of those that have been requested
-  }
-  else {
-    foreach ($vcses as $vcs) {
-      $placeholders[] = "'%s'";
-      $params[] = $vcs;
-    }
-    $and_constraints[] = 'r.vcs IN ('. implode(',', $placeholders) .')';
-  }
-
-  if (isset($constraints['repo_ids'])) {
-    if (empty($constraints['repo_ids'])) {
-      $and_constraints[] = 'FALSE';
-    }
-    else {
-      $placeholders = array();
-      foreach ($constraints['repo_ids'] as $repo_id) {
-        $placeholders[] = '%d';
-        $params[] = $repo_id;
-      }
-      $and_constraints[] = 'r.repo_id IN ('. implode(',', $placeholders) .')';
-    }
-  }
-
-  if (isset($constraints['names'])) {
-    if (empty($constraints['names'])) {
-      $and_constraints[] = 'FALSE';
-    }
-    else {
-      $placeholders = array();
-      foreach ($constraints['names'] as $name) {
-        $placeholders[] = "'%s'";
-        $params[] = $name;
-      }
-      $and_constraints[] = 'r.name IN ('. implode(',', $placeholders) .')';
-    }
-  }
-
-  return array($and_constraints, $params);
-}
-
-/**
- * Execute a query with either db_query(), db_query_range() or pager_query().
- * Which one of those is called, and with which parameters, is specified by the
- * @p $options array, see versioncontrol_get_operations() for a description of
- * possible array keys and option values.
- */
-function _versioncontrol_query($query, $params, $options) {
-  if (isset($options['query_type']) && $options['query_type'] == 'pager') {
-    $element = isset($options['pager_element']) ? $options['pager_element'] : 0;
-    return pager_query($query, $options['count'], $element, NULL, $params);
-  }
-  elseif (isset($options['query_type']) && $options['query_type'] == 'range') {
-    return db_query_range($query, $params, $options['from'], $options['count']);
-  }
-  else {
-    return db_query($query, $params);
-  }
-}
-
-/**
- * Implementation of hook_versioncontrol_operation_constraint_info().
- */
-function versioncontrol_versioncontrol_operation_constraint_info() {
-  return array(
-    'vcs' => array('join callback' => 'versioncontrol_table_repositories_join'),
-    'vc_op_ids' => array(),
-    'revisions' => array(),
-    'repo_ids' => array('join callback' => 'versioncontrol_table_repositories_join'),
-    'date_lower' => array('cardinality' => VERSIONCONTROL_CONSTRAINT_SINGLE),
-    'date_upper' => array('cardinality' => VERSIONCONTROL_CONSTRAINT_SINGLE),
-    'uids' => array(),
-    'usernames' => array(),
-    'user_relation' => array('cardinality' => VERSIONCONTROL_CONSTRAINT_SINGLE),
-    'message' => array('cardinality' => VERSIONCONTROL_CONSTRAINT_SINGLE_OR_MULTIPLE),
-    'item_revision_ids' => array('join callback' => 'versioncontrol_table_operation_items_join'),
-    'item_revisions' => array('join callback' => 'versioncontrol_table_item_revisions_join'),
-    'paths' => array('join callback' => 'versioncontrol_table_item_revisions_join'),
-    'labels' => array('join callback' => 'versioncontrol_table_labels_join'),
-    'tags' => array('join callback' => 'versioncontrol_table_labels_join'),
-    'branches' => array('join callback' => 'versioncontrol_table_labels_join'),
-    'types' => array(),
-  );
-}
-
-/**
- * Implementation of hook_versioncontrol_operation_constraints_alter():
- * Include only operations for enabled backends in the query.
- */
-function versioncontrol_versioncontrol_operation_constraints_alter($constraints) {
-  // Filter out entries of which the corresponding backend is not enabled,
-  // and handle the 'vcs' constraint at the same time.
-  $backends = versioncontrol_get_backends();
-  $vcses = array_keys($backends);
-
-  if (isset($constraints['vcs'])) {
-    $vcses = array_intersect($vcses, $constraints['vcs']);
-  }
-  $constraints['vcs'] = $vcses;
-}
-
-/**
- * Filter operations by their associated backend.
- */
-function versioncontrol_operation_constraint_vcs($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $vcs) {
-    $placeholders[] = "'%s'";
-    $params[] = $vcs;
-  }
-  $and_constraints[] = $tables['versioncontrol_repositories']['alias'] .'.vcs
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by their version control operation id.
- */
-function versioncontrol_operation_constraint_vc_op_ids($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $vc_op_id) {
-    $placeholders[] = '%d';
-    $params[] = $vc_op_id;
-  }
-  $and_constraints[] = $tables['versioncontrol_operations']['alias'] .'.vc_op_id
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by their revision identifier.
- */
-function versioncontrol_operation_constraint_revisions($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $revision) {
-    $placeholders[] = "'%s'";
-    $params[] = $revision;
-  }
-  $and_constraints[] = $tables['versioncontrol_operations']['alias'] .'.revision
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by their repository id.
- */
-function versioncontrol_operation_constraint_repo_ids($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $repo_id) {
-    $placeholders[] = '%d';
-    $params[] = $repo_id;
-  }
-  $and_constraints[] = $tables['versioncontrol_repositories']['alias'] .'.repo_id
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by a lower date bound.
- */
-function versioncontrol_operation_constraint_date_lower($constraint, &$tables, &$and_constraints, &$params) {
-  $and_constraints[] = '('. $tables['versioncontrol_operations']['alias'] .'.date >= %d)';
-  $params[] = $constraint;
-}
-
-/**
- * Filter operations by an upper date bound.
- */
-function versioncontrol_operation_constraint_date_upper($constraint, &$tables, &$and_constraints, &$params) {
-  $and_constraints[] = '('. $tables['versioncontrol_operations']['alias'] .'.date <= %d)';
-  $params[] = $constraint;
-}
-
-/**
- * Filter operations by their associated Drupal user id.
- */
-function versioncontrol_operation_constraint_uids($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $uid) {
-    $placeholders[] = '%d';
-    $params[] = $uid;
-  }
-  $and_constraints[] = $tables['versioncontrol_operations']['alias'] .'.uid
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by the VCS username of the operation author.
- */
-function versioncontrol_operation_constraint_usernames($constraint, &$tables, &$and_constraints, &$params) {
-  $placeholders = array();
-  foreach ($constraint as $username) {
-    $placeholders[] = "'%s'";
-    $params[] = $username;
-  }
-  $and_constraints[] = $tables['versioncontrol_operations']['alias'] .'.username
-                        IN ('. implode(',', $placeholders) .')';
-}
-
-/**
- * Filter operations by associated Drupal user status of the operation author.
- */
-function versioncontrol_operation_constraint_user_relation($constraint, &$tables, &$and_constraints, &$params) {
-  $and_constraints[] = $tables['versioncontrol_operations']['alias'] .'.uid <> 0';
-
-  if ($constraint == VERSIONCONTROL_USER_ASSOCIATED_ACTIVE) {
-    versioncontrol_table_users_join($tables);
-    $and_constraints[] = $tables['users']['alias'] .'.status = 1';
-  }
-}
-
-/**
- * Filter operations by their log message.
- */
-function versioncontrol_operation_constraint_message($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-  foreach ($constraint as $message_part) {
-    $or_constraints[] = $tables['versioncontrol_operations']['alias'] .".message LIKE '%s'";
-    $params[] = '%'. $message_part .'%';
-  }
-  $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-}
-
-/**
- * Filter operations by item_revision_ids of associated items.
- */
-function versioncontrol_operation_constraint_item_revision_ids($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-
-  $placeholders = array();
-  foreach ($constraint as $item_revision_id) {
-    $placeholders[] = '%d';
-    $params[] = $item_revision_id;
-  }
-  $and_constraints[] = $tables['versioncontrol_operation_items']['alias'] .'.item_revision_id
-                        IN ('. implode(',', $placeholders) .')';
-
-  // Exact search for target items, no fuzzy source item path results.
-  $params[] = VERSIONCONTROL_OPERATION_MEMBER_ITEM;
-  $and_constraints[] = $tables['versioncontrol_operation_items']['alias'] .'.type = %d';
-}
-
-/**
- * Filter operations by revision identifiers of associated items.
- */
-function versioncontrol_operation_constraint_item_revisions($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-
-  $placeholders = array();
-  foreach ($constraint as $revision) {
-    $placeholders[] = "'%s'";
-    $params[] = $revision;
-  }
-  $and_constraints[] = $tables['versioncontrol_item_revisions']['alias'] .'.revision IN ('. implode(',', $placeholders) .')';
-
-  // Exact search for target items, no fuzzy source item path results.
-  $params[] = VERSIONCONTROL_OPERATION_MEMBER_ITEM;
-  $and_constraints[] = $tables['versioncontrol_operation_items']['alias'] .'.type = %d';
-}
-
-/**
- * Filter operations by item paths of associated items.
- */
-function versioncontrol_operation_constraint_paths($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-
-  foreach ($constraint as $path) {
-    $current_path = $path;
-    $placeholders = array();
-
-    // Both the given path and all its parent directories are included in the query.
-    while (TRUE) {
-      $placeholders[] = "'%s'";
-      $params[] = $current_path;
-
-      if ($current_path == dirname($current_path)) {
-        break; // we reached the root directory, '/'
-      }
-      $current_path = dirname($current_path);
-    }
-    $or_constraints[] = $tables['versioncontrol_item_revisions']['alias'] .'.path IN ('. implode(',', $placeholders) .')';
-
-    // Also include any children paths of the given one
-    // (will only yield results for directory paths).
-    $or_constraints[] = $tables['versioncontrol_item_revisions']['alias'] .".path LIKE '%s'";
-    $params[] = $path . (($path[strlen($path)-1] == '/') ? '%' : '/%');
-  }
-  $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-}
-
-/**
- * Filter operations by associated label names (both branches and tags).
- */
-function versioncontrol_operation_constraint_labels($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-  foreach ($constraint as $label_name) {
-    $or_constraints[] = $tables['versioncontrol_labels']['alias'] .".name = '%s'";
-    $params[] = $label_name;
-  }
-  $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-}
-
-/**
- * Filter operations by associated tag names.
- */
-function versioncontrol_operation_constraint_tags($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-  foreach ($constraint as $label_name) {
-    $or_constraints[] = $tables['versioncontrol_labels']['alias'] .".name = '%s'";
-    $params[] = $label_name;
-  }
-  $and_constraints[] = '(('. implode(' OR ', $or_constraints) .') AND '.
-    $tables['versioncontrol_labels']['alias'] .'.type = %d)';
-  $params[] = VERSIONCONTROL_OPERATION_TAG;
-}
-
-/**
- * Filter operations by associated branch names.
- * (Applies to both branch operations and commits).
- */
-function versioncontrol_operation_constraint_branches($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-  foreach ($constraint as $label_name) {
-    $or_constraints[] = $tables['versioncontrol_labels']['alias'] .".name = '%s'";
-    $params[] = $label_name;
-  }
-  $and_constraints[] = '(('. implode(' OR ', $or_constraints) .') AND '.
-    $tables['versioncontrol_labels']['alias'] .'.type = %d)';
-  $params[] = VERSIONCONTROL_OPERATION_BRANCH;
-}
-
-/**
- * Filter operations by their operation type. As noted in the API documentation
- * for versioncontrol_get_operations(), this filter is kinda smart and also
- * includes commits for version control systems like Subversion when a branch
- * or tag is affected by that commit.
- */
-function versioncontrol_operation_constraint_types($constraint, &$tables, &$and_constraints, &$params) {
-  $or_constraints = array();
-
-  if (in_array(VERSIONCONTROL_OPERATION_COMMIT, $constraint)) {
-    $or_constraints[] = $tables['versioncontrol_operations']['alias'] .'.type = %d';
-    $params[] = VERSIONCONTROL_OPERATION_COMMIT;
-  }
-  if (in_array(VERSIONCONTROL_OPERATION_BRANCH, $constraint)) {
-    versioncontrol_table_labels_join($tables);
-    $or_constraints[] = '('.
-      $tables['versioncontrol_labels']['alias'] .'.type = %d AND '.
-      $tables['versioncontrol_operation_labels']['alias'] .'.action <> %d
-    )';
-    $params[] = VERSIONCONTROL_LABEL_BRANCH; // label.type
-    // oplabel.action is != normal commits, we don't want those:
-    $params[] = VERSIONCONTROL_ACTION_MODIFIED;
-  }
-  if (in_array(VERSIONCONTROL_OPERATION_TAG, $constraint)) {
-    versioncontrol_table_labels_join($tables);
-    $or_constraints[] = '('.
-      $tables['versioncontrol_labels']['alias'] .'.type = %d AND '.
-      $tables['versioncontrol_operation_labels']['alias'] .'.action <> %d
-    )';
-    $params[] = VERSIONCONTROL_OPERATION_TAG; // label.type
-    // oplabel.action is != normal commits, we don't want those:
-    $params[] = VERSIONCONTROL_ACTION_MODIFIED;
-  }
-  $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-}
-
-/**
- * Take an existing @p $tables array and add the table join for
- * {versioncontrol_repositories}. Only meant to be used within a
- * constraint construction callback.
- */
-function versioncontrol_table_repositories_join(&$tables) {
-  if (!isset($tables['versioncontrol_repositories'])) {
-    $tables['versioncontrol_repositories'] = array(
-      'alias' => 'r',
-      'join_on' => 'op.repo_id = r.repo_id',
-    );
-  }
-}
-
-/**
- * Take an existing @p $tables array and add the table join for {users} on
- * {versioncontrol_operations}.uid. Only meant to be used within a
- * constraint construction callback.
- */
-function versioncontrol_table_users_join(&$tables) {
-  if (!isset($tables['users'])) {
-    $tables['users'] = array(
-      'alias' => 'user',
-      'join_on' => 'op.uid = user.uid',
-    );
-  }
-}
-
-/**
- * Take an existing @p $tables array and add the table joins for
- * {versioncontrol_operation_labels} and {versioncontrol_labels}.
- * Only meant to be used within a constraint construction callback.
- */
-function versioncontrol_table_labels_join(&$tables) {
-  if (!isset($tables['versioncontrol_operation_labels'])) {
-    $tables['versioncontrol_operation_labels'] = array(
-      'alias' => 'oplabel',
-      'join_on' => $tables['versioncontrol_operations']['alias'] .'.vc_op_id = oplabel.vc_op_id',
-    );
-    $tables['versioncontrol_labels'] = array(
-      'alias' => 'label',
-      'join_on' => 'oplabel.label_id = label.label_id',
-    );
-  }
-}
-
-/**
- * Take an existing @p $tables array and add the table join for
- * {versioncontrol_operation_items}.
- * Only meant to be used within a constraint construction callback.
- */
-function versioncontrol_table_operation_items_join(&$tables) {
-  if (!isset($tables['versioncontrol_operation_items'])) {
-    $tables['versioncontrol_operation_items'] = array(
-      'alias' => 'opitem',
-      'join_on' => $tables['versioncontrol_operations']['alias'] .'.vc_op_id = opitem.vc_op_id',
-    );
-  }
-}
-
-/**
- * Take an existing @p $tables array and add the table joins for
- * {versioncontrol_operation_labels} and {versioncontrol_labels}.
- * Only meant to be used within a constraint construction callback.
- */
-function versioncontrol_table_item_revisions_join(&$tables) {
-  if (!isset($tables['versioncontrol_item_revisions'])) {
-    versioncontrol_table_operation_items_join($tables);
-
-    $tables['versioncontrol_item_revisions'] = array(
-      'alias' => 'ir',
-      'join_on' => 'opitem.item_revision_id = ir.item_revision_id',
-    );
-  }
-}
-
-/**
- * Return a subset of the given operations according to the
- * $page and $limit values.
- */
-function _versioncontrol_page_operations($operations, $page, $limit) {
-  $i = 0;
-  $paged_operations = array();
-  foreach ($operations as $operation) {
-    if ($i >= ($page * $limit) && $i < (($page+1) * $limit)) {
-      $paged_operations[] = $operation;
-    }
-    ++$i;
-  }
-  return $paged_operations;
-}
-
 
 /**
  * Retrieve additional information about the origin of a given set of items.
@@ -1283,10 +870,7 @@ function versioncontrol_fetch_item_commit_operations($repository, &$items) {
   }
 
   if ($fetch_by_revision_id) {
-    $commit_operations = VersioncontrolOperationCache::getInstance()->getCommits(array(
-      'repo_ids' => array($repository['repo_id']),
-      'revisions' => array_keys($ids),
-    ));
+    $commit_operations = $repository->loadCommits(array(), array('revision' => array_keys($ids)));
     // Associate the commit operations to the items.
     foreach ($items as $key => $item) {
       foreach ($commit_operations as $commit_operation) {
@@ -1306,9 +890,7 @@ function versioncontrol_fetch_item_commit_operations($repository, &$items) {
     while ($opitem = db_fetch_object($result)) {
       $operation_item_mapping[$opitem->vc_op_id][] = $opitem->item_revision_id;
     }
-    $commit_operations = VersioncontrolOperationCache::getInstance()->getCommits(array(
-      'vc_op_ids' => array_keys($operation_item_mapping),
-    ));
+    $commit_operations = $repository->loadCommits(array_keys($operation_item_mapping));
 
     // Associate the commit operations to the items.
     foreach ($commit_operations as $commit_operation) {
@@ -1387,7 +969,6 @@ function versioncontrol_path_contains($parent_path, $child_path) {
   }
   return (strpos($child_path, $parent_path) === 0);
 }
-
 
 /**
  * Return a the username of a VCS account.
@@ -1544,7 +1125,7 @@ function theme_versioncontrol_user_statistics_item_list($statistics, $more_link 
  */
 function theme_versioncontrol_user_statistics_account($user_stats) {
   if (isset($user_stats->repo_id) && isset($user_stats->username)) {
-    $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($user_stats->repo_id);
+    $repository = versioncontrol_repository_load($user_stats->repo_id);
     return theme('versioncontrol_account_username',
       $user_stats->uid, $user_stats->username, $repository,
       array('include_repository_name' => TRUE)
@@ -1631,7 +1212,7 @@ function versioncontrol_user_autocomplete($repo_id, $string = '') {
 
   while ($user = db_fetch_object($result)) {
     if (!isset($repository)) {
-      $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
+      $repository = versioncontrol_repository_load($repo_id);
     }
     if ($repository->isAccountAuthorized($user->uid)) {
       $matches[$user->name] = check_plain($user->name);

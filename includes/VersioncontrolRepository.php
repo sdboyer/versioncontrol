@@ -8,7 +8,7 @@
 /**
  * Contain fundamental information about the repository.
  */
-abstract class VersioncontrolRepository implements ArrayAccess {
+abstract class VersioncontrolRepository extends VersioncontrolEntity {
   // Attributes
   /**
    * db identifier
@@ -51,8 +51,6 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    */
   public $data = array();
 
-  protected $built = FALSE;
-
   // Associations
   /**
    * The backend associated with this repository
@@ -61,39 +59,14 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    */
   public $backend;
 
-  // Operations
   /**
-   * Constructor
+   * An array of VersioncontrolEntityController objects used to spawn more
+   * entities from this repository, if needed. These objects are lazy-
+   * instanciated to avoid unnecessary object creation.
+   *
+   * @var array
    */
-  public function __construct($repo_id, $args = array(), $buildSelf = TRUE) {
-    $this->repo_id = $repo_id;
-    if ($buildSelf) {
-      $this->buildSelf();
-    }
-    else {
-      $this->build($args);
-    }
-    $this->built = TRUE;
-  }
-
-  protected function buildSelf() {
-    $data = db_fetch_array(db_query("
-      SELECT
-      vr.name, vr.root, vr.authorization_method, vr.data
-      FROM {versioncontrol_repositories} vr
-      WHERE vr.repo_id = %d",
-      $this->repo_id));
-    $this->build($data);
-  }
-
-  protected function build($args = array()) {
-    foreach ($args as $prop => $value) {
-      $this->$prop = $value;
-    }
-    if (is_string($this->data)) {
-      $this->data = unserialize($this->data);
-    }
-  }
+  protected $controllers = array();
 
   /**
    * Title callback for repository arrays.
@@ -102,91 +75,69 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     return check_plain($repository->name);
   }
 
+  public function load($controller, $ids = array(), $conditions = array(), $options = array()) {
+    if (!isset($this->controllers[$controller])) {
+      $class = "Versioncontrol" . ucfirst($controller) . "Controller";
+      $this->controllers[$controller] = new $class();
+      $this->controllers[$controller]->setBackend($this->backend);
+      // Set the controller to instanciate with this repository by default.
+      $this->controllers[$controller]->defaultOptions['repository'] = $this;
+    }
+    $conditions['repo_id'] = $this->repo_id;
+    return $this->controllers[$controller]->load($ids, $conditions, $options);
+  }
+
   /**
-   * Retrieve known branches and/or tags in a repository as a set of label arrays.
+   * Load known branches in a repository from the database as an array of
+   * VersioncontrolBranch-descended objects.
    *
-   * @param $constraints
-   *   An optional array of constraints. If no constraints are given, all known
-   *   labels for a repository will be returned. Possible array elements are:
-   *
-   *   - 'label_ids': An array of label ids. If given, only labels with one of
-   *        these identifiers will be returned.
-   *   - 'type': Either VERSIONCONTROL_LABEL_BRANCH or
-   *        VERSIONCONTROL_LABEL_TAG. If given, only labels of this type
-   *        will be returned.
-   *   - 'names': An array of label names to search for. If given, only labels
-   *        matching one of these names will be returned. Matching is done with
-   *        SQL's LIKE operator, which means you can use the percentage sign
-   *        as wildcard.
+   * @param array $ids
+   *   An array of branch ids. If given, only branches matching these ids will
+   *   be returned.
+   * @param array $conditions
+   *   An associative array of additional conditions. These will be passed to
+   *   the entity controller and composed into the query. The array should be
+   *   key/value pairs with the field name as key, and desired field value as
+   *   value. The value may also be an array, in which case the IN operator is
+   *   used. For more complex requirements, FIXME finish!
+   *   @see VersioncontrolEntityController::buildQuery() .
    *
    * @return
-   *   An array of VersioncontrolLabel objects
-   *   If not a single known label in the given repository matches these
-   *   constraints, an empty array is returned.
+   *   An associative array of label objects, keyed on their
    */
-  public function getLabels($constraints = array()) {
-    $and_constraints = array('repo_id = %d');
-    $params = array($this->repo_id);
+  public function loadBranches($ids = array(), $conditions = array(), $options = array()) {
+    return $this->load('branch', $ids, $conditions, $options);
+  }
 
-    // Filter by label id.
-    if (isset($constraints['label_ids'])) {
-      if (empty($constraints['label_ids'])) {
-        return array();
-      }
-      $or_constraints = array();
-      foreach ($constraints['label_ids'] as $label_id) {
-        $or_constraints[] = 'label_id = %d';
-        $params[] = $label_id;
-      }
-      $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-    }
+  /**
+   * Load known tags in a repository from the database as an array of
+   * VersioncontrolTag-descended objects.
+   *
+   * @param array $ids
+   *   An array of tag ids. If given, only tags matching these ids will be
+   *   returned.
+   * @param array $conditions
+   *   An associative array of additional conditions. These will be passed to
+   *   the entity controller and composed into the query. The array should be
+   *   key/value pairs with the field name as key, and desired field value as
+   *   value. The value may also be an array, in which case the IN operator is
+   *   used. For more complex requirements, FIXME finish!
+   *   @see VersioncontrolEntityController::buildQuery() .
+   *
+   * @return
+   *   An associative array of label objects, keyed on their
+   */
+  public function loadTags($ids = array(), $conditions = array(), $options = array()) {
+    return $this->load('tag', $ids, $conditions, $options);
+  }
 
-    // Filter by label name.
-    if (isset($constraints['names'])) {
-      if (empty($constraints['names'])) {
-        return array();
-      }
-      $or_constraints = array();
-      foreach ($constraints['names'] as $name) {
-        $or_constraints[] = "name LIKE '%s'";
-        // Escape the percentage sign in order to get it to appear as '%' in the
-        // actual query, as db_query() uses the single '%' also for replacements
-        // like '%d' and '%s'.
-        $params[] = str_replace('%', '%%', $name);
-      }
-      $and_constraints[] = '('. implode(' OR ', $or_constraints) .')';
-    }
+  public function loadCommits($ids = array(), $conditions = array(), $options = array()) {
+    $conditions['type'] = VERSIONCONTROL_OPERATION_COMMIT;
+    return $this->load('operation', $ids, $conditions, $options);
+  }
 
-    // Filter by type.
-    if (isset($constraints['type'])) {
-      // There are only two types of labels (branches and tags), so a list of
-      // types doesn't make a lot of sense for this constraint. So, this one is
-      // simpler than the other ones.
-      $and_constraints[] = 'type = %d';
-      $params[] = $constraints['type'];
-    }
-
-    // All the constraints have been gathered, assemble them to a WHERE clause.
-    $and_constraints = implode(' AND ', $and_constraints);
-
-    // Execute the query.
-    $result = db_query('SELECT label_id, name, type FROM {versioncontrol_labels}
-                        WHERE '. $and_constraints .'
-                        ORDER BY label_id', $params);
-
-    // Assemble the return value.
-    $labels = array();
-    while ($label = db_fetch_array($result)) {
-      switch ($label['type']) {
-      case VERSIONCONTROL_LABEL_BRANCH:
-        $labels[] = new VersioncontrolBranch($label['name'], NULL, $label['label_id'], $this);
-        break;
-      case VERSIONCONTROL_LABEL_TAG:
-        $labels[] = new VersioncontrolTag($label['name'], NULL, $label['label_id'], $this);
-        break;
-      }
-    }
-    return $labels;
+  public function loadAccounts($ids = array(), $conditions = array(), $options = array()) {
+    return $this->load('account', $ids, $conditions, $options);
   }
 
   /**
@@ -216,11 +167,12 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     return TRUE;
   }
 
-  /**
-   * Let child backend repo classes add information that _is not_ in
-   * VersioncontrolRepository::data
-   */
-  public function _getRepository() {
+  public function save() {
+    return isset($this->repo_id) ? $this->update() : $this->save();
+  }
+
+  public function buildSave(&$query) {
+
   }
 
   /**
@@ -228,6 +180,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    * The 'repo_id' and 'vcs' properties of the repository object must stay
    * the same as the ones given on repository creation,
    * whereas all other values may change.
+   * TODO refactor to use a custom-built db_insert().
    */
   public final function update() {
     drupal_write_record('versioncontrol_repositories', $this, 'repo_id');
@@ -244,13 +197,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     );
   }
 
-  /**
-   * Let child backend repo classes update information that _is not_ in
-   * VersioncontrolRepository::data without modifying general flow if
-   * necessary.
-   */
-  protected function _update() {
-  }
+  protected function _update() {}
 
   /**
    * Insert a repository into the database, and call the necessary hooks.
@@ -284,8 +231,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    * VersioncontrolRepository::data without modifying general flow if
    * necessary.
    */
-  protected function _insert() {
-  }
+  protected function _insert() {}
 
   /**
    * Delete a repository from the database, and call the necessary hooks.
@@ -294,11 +240,22 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    */
   public final function delete() {
     // Delete operations.
-    $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('repo_ids' => array($this->repo_id)));
-    foreach ($operations as $operation) {
-      $operation->delete();
+    $branches = $this->loadBranches();
+    foreach ($this->loadBranches as $branch) {
+      $branch->delete();
     }
-    unset($operations); // conserve memory, this might get quite large
+    foreach ($this->loadTags() as $tag) {
+      $tag->delete();
+    }
+    foreach ($this->loadCommits() as $commit) {
+      $commit->delete();
+    }
+
+    // $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('repo_ids' => array($this->repo_id)));
+    // foreach ($operations as $operation) {
+    //  $operation->delete();
+    // }
+    // unset($operations); // conserve memory, this might get quite large
 
     // Delete labels.
     db_query('DELETE FROM {versioncontrol_labels}
@@ -329,9 +286,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     unset($placeholders); // ...likewise
 
     // Delete accounts.
-    $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(
-      array('repo_ids' => array($this->repo_id)), TRUE
-    );
+    $accounts = $this->loadAccounts();
     foreach ($accounts as $uid => $usernames_by_repository) {
       foreach ($usernames_by_repository as $repo_id => $account) {
         $account->delete();
@@ -359,24 +314,23 @@ abstract class VersioncontrolRepository implements ArrayAccess {
    * VersioncontrolRepository::data without modifying general flow if
    * necessary.
    */
-  protected function _delete() {
-  }
+  protected function _delete() {}
 
   /**
    * Export a repository's authenticated accounts to the version control system's
    * password file format.
    *
+   * FIXME this is TOTALLY broken, it calls itself.
    * @param $repository
    *   The repository array of the repository whose accounts should be exported.
    *
    * @return
    *   The plaintext result data which could be written into the password file
    *   as is.
+   *
    */
   public function exportAccounts() {
-    $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array(
-      'repo_ids' => array($this->repo_id),
-    ));
+    $accounts = $this->loadAccounts();
     return $repository->exportAccounts($accounts);
   }
 
@@ -459,9 +413,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
 
   /**
    * Retrieve the VCS username for a given Drupal user id in a specific
-   * repository. If you need more detailed querying functionality than
-   * this function provides, use
-   * VersioncontrolAccountCache::getInstance()->getAccounts() instead.
+   * repository.
    *
    * @param $username
    *   The VCS specific username (a string) corresponding to the Drupal
@@ -494,9 +446,7 @@ abstract class VersioncontrolRepository implements ArrayAccess {
 
   /**
    * Retrieve the Drupal user id for a given VCS username in a specific
-   * repository. If you need more detailed querying functionality than
-   * this function provides, use
-   * VersioncontrolAccountCache::getInstance()->getAccounts() instead.
+   * repository.
    *
    * @param $uid
    *   The Drupal user id corresponding to the VCS account.
@@ -525,21 +475,6 @@ abstract class VersioncontrolRepository implements ArrayAccess {
     }
     return NULL;
   }
-
-  //ArrayAccess interface implementation
-  public function offsetExists($offset) {
-    return isset($this->$offset);
-  }
-  public function offsetGet($offset) {
-    return $this->$offset;
-  }
-  public function offsetSet($offset, $value) {
-    $this->$offset = $value;
-  }
-  public function offsetUnset($offset) {
-    unset($this->$offset);
-  }
-
 }
 
 /**

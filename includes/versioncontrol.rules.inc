@@ -21,7 +21,7 @@ function versioncontrol_token_list($type = 'all') {
 
   if ($type == 'versioncontrol_repository' || $type == 'all') {
     $repo_name_mapping = array();
-    foreach (VersioncontrolRepositoryCache::getInstance()->getRepositories() as $repo_id => $repository) {
+    foreach (versioncontrol_repository_load_multiple(FALSE) as $repo_id => $repository) {
       $repo_name_mapping[] = t('!id for @repo-name', array(
         '!id' => $repo_id,
         '@repo-name' => $repository['name'],
@@ -140,7 +140,7 @@ class versioncontrol_data_type_repository extends rules_data_type {
   }
 
   function load($repo_id) {
-    return VersioncontrolRepositoryCache::getInstance()->getRepository($repo_id);
+    return versioncontrol_repository_load($repo_id);
   }
 
   function get_identifier() {
@@ -154,6 +154,7 @@ class versioncontrol_data_type_repository extends rules_data_type {
  */
 class versioncontrol_data_type_operation extends rules_data_type {
   function load($vc_op_id) {
+    // FIXME this is the only global operations loader - how to handle it after the refactor?
     $operations = VersioncontrolOperationCache::getInstance()->getOperations(array('vc_op_ids' => array($vc_op_id)));
     return empty($operations) ? FALSE : reset($operation); // first (only) element
   }
@@ -280,7 +281,7 @@ function versioncontrol_condition_repository($repository, $settings) {
 
 function versioncontrol_condition_repository_form($settings, &$form) {
   $repository_options = array();
-  foreach (VersioncontrolRepositoryCache::getInstance()->getRepositories() as $repo_id => $repository) {
+  foreach (versioncontrol_repository_load_multiple(FALSE) as $repo_id => $repository) {
     $repository_options[$repo_id] = check_plain($repository['name']);
   }
 

@@ -6,16 +6,89 @@
  */
 
 /**
- * Represents a tag of code(not changing state)
+ * Represents a tag of code (not changing state)
  */
-class VersioncontrolTag extends VersioncontrolLabel {
-
-  // Operations
+class VersioncontrolTag extends VersioncontrolEntity {
   /**
-   * Constructor
+   * The tag identifier (a simple integer), used for unique identification of
+   * this tag in the database.
+   *
+   * @var int
    */
-  public function __construct($name, $action, $label_id = NULL, $repository = NULL) {
-    parent::__construct(VERSIONCONTROL_LABEL_TAG, $name, $action, $label_id, $repository);
+  public $label_id;
+
+  /**
+   * The tag name.
+   *
+   * @var string
+   */
+  public $name;
+
+  /**
+   * Indicates this is a tag; for db interaction only.
+   *
+   * @var int
+   */
+  public $type = VERSIONCONTROL_LABEL_TAG;
+
+  /**
+   * @name VCS actions
+   * for a single item (file or directory) in a commit, or for branches and tags.
+   * either VERSIONCONTROL_ACTION_{ADDED,MODIFIED,MOVED,COPIED,MERGED,DELETED,
+   * REPLACED,OTHER}
+   *
+   * @var array
+   */
+  public $action;
+
+  /**
+   * The database id of the repository with which this tag is associated.
+   * @var int
+   */
+  public $repo_id;
+
+  /**
+   * Insert a tag entry into the {versioncontrol_labels} table, or retrieve the
+   * same one that's already there.
+   *
+   * The object is enhanced with the newly added property 'label_id' specifying
+   * the database identifier for that label. There may be labels with a similar
+   * 'name' but different 'type' properties, those are considered to be
+   * different and will both go into the database side by side.
+   *
+   * @deprecated FIXME remove this approach, it leads to inefficient single-loading.
+   */
+  public function ensure() {
+    if (!empty($this->label_id)) { // already in the database
+      return;
+    }
+    $result = db_result(db_query("SELECT label_id FROM {versioncontrol_labels} WHERE repo_id = %d AND name = '%s' AND type = %d",
+      $this->repository->repo_id, $this->name, $this->type));
+    if ($result) {
+      $this->label_id = $result;
+    }
+    else {
+      // The item doesn't yet exist in the database, so create it.
+      $this->insert();
+    }
   }
 
+  /**
+   * Insert label to db
+   */
+  public function insert() {
+    if (isset($this->label_id)) {
+      // The label already exists in the database, update the record.
+      drupal_write_record('versioncontrol_labels', $this, 'label_id');
+    }
+    else {
+      // The label does not yet exist, create it.
+      // drupal_write_record() also assigns the new id to $this->label_id.
+      drupal_write_record('versioncontrol_labels', $this);
+    }
+    unset($this->repo_id);
+  }
+  public function save() {}
+  public function update() {}
+  public function buildSave(&$query) {}
 }

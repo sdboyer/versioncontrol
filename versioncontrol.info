@@ -2,6 +2,7 @@
 name = "Version Control API"
 description = "An interface to version control systems whose functionality is provided by pluggable back-end modules."
 dependencies[] = autoload
+dependencies[] = dbtng
 package = Version Control
 core = 6.x
 php = 5.2

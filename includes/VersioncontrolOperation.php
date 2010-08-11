@@ -8,7 +8,7 @@
 /**
  * Stuff that happened in a repository at a specific time
  */
-abstract class VersioncontrolOperation implements ArrayAccess {
+abstract class VersioncontrolOperation extends VersioncontrolEntity {
   /**
    * db identifier
    *
@@ -96,7 +96,7 @@ abstract class VersioncontrolOperation implements ArrayAccess {
    *
    * @var    array
    */
-  public $labels;
+  public $labels = array();
 
   /**
    * The Drupal user id of the operation author, or 0 if no Drupal user
@@ -111,20 +111,6 @@ abstract class VersioncontrolOperation implements ArrayAccess {
    * hasWriteAccess().
    */
   private static $error_messages = array();
-
-  /**
-   * Constructor
-   */
-  public function __construct($type, $committer, $date, $revision, $message, $author = NULL, $repository = NULL, $vc_op_id = NULL) {
-    $this->type = $type;
-    $this->committer = $committer;
-    $this->date = $date;
-    $this->revision = $revision;
-    $this->message = $message;
-    $this->author = (is_null($author))? $committer: $author;
-    $this->repository = $repository;
-    $this->vc_op_id = $vc_op_id;
-  }
 
   /**
    * Retrieve all items that were affected by an operation.
@@ -224,6 +210,14 @@ abstract class VersioncontrolOperation implements ArrayAccess {
       'update', $this, $labels
     );
     $this->setLabels($labels);
+  }
+
+  public function save() {
+    return isset($this->repo_id) ? $this->update() : $this->save();
+  }
+
+  public function buildSave(&$query) {
+
   }
 
   /**
@@ -373,6 +367,8 @@ abstract class VersioncontrolOperation implements ArrayAccess {
   protected function _insert($operation_items) {
   }
 
+  public function update() {}
+
   /**
    * Delete a commit, a branch operation or a tag operation from the database,
    * and call the necessary hooks.
@@ -424,18 +420,10 @@ abstract class VersioncontrolOperation implements ArrayAccess {
    *   but unauthorized users. If TRUE, all known users are mapped to their uid.
    */
   private function fill($include_unauthorized = FALSE) {
-    // If not already there, retrieve the full repository object.
-    // FIXME: take one always set member, not sure if root is one | set other condition here
-    if (!isset($this->repository->root) && isset($this->repo_id)) {
-      $this->repository = VersioncontrolRepositoryCache::getInstance()->getRepository($this->repository->repo_id);
-      unset($this->repo_id);
-    }
-
     // If not already there, retrieve the Drupal user id of the committer.
     if (!isset($this->author)) {
-      $uid = $this->repository->getAccountUidForUsername(
-        $this->author, $include_unauthorized
-      );
+      $account = $this->repository->getAccounts(array(), array('username' => $this->author));
+
       // If no uid could be retrieved, blame the commit on user 0 (anonymous).
       $this->author = isset($this->author) ? $this->author : 0;
     }
@@ -675,19 +663,4 @@ abstract class VersioncontrolOperation implements ArrayAccess {
    *   anymore.
    */
   public abstract function getSelectedLabel($item);
-
-  //ArrayAccess interface implementation
-  public function offsetExists($offset) {
-    return isset($this->$offset);
-  }
-  public function offsetGet($offset) {
-    return $this->$offset;
-  }
-  public function offsetSet($offset, $value) {
-    $this->$offset = $value;
-  }
-  public function offsetUnset($offset) {
-    unset($this->$offset);
-  }
-
 }

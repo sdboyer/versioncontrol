@@ -3,6 +3,13 @@
 
 class VersioncontrolFakeBackend extends VersioncontrolBackend {
 
+  public $classes = array(
+    'repo'      => 'VersioncontrolFakeRepository',
+    'account'   => 'VersioncontrolFakeAccount',
+    'operation' => 'VersioncontrolFakeOperation',
+    'item'      => 'VersioncontrolFakeItem',
+  );
+
   public function __construct() {
     $this->name = 'FakeVCS';
     $this->description = t('FakeVCS is a version control system that is specifically capable in doing everything that any other version control system might ever do.');
@@ -23,12 +30,6 @@ class VersioncontrolFakeBackend extends VersioncontrolBackend {
         // The version control system assigns revisions not only to files
         // but also to directories.
         VERSIONCONTROL_CAPABILITY_DIRECTORY_REVISIONS,
-    );
-    $this->classes = array(
-      'repo'      => 'VersioncontrolFakeRepository',
-      'account'   => 'VersioncontrolFakeAccount',
-      'operation' => 'VersioncontrolFakeOperation',
-      'item'      => 'VersioncontrolFakeItem',
     );
   }
 

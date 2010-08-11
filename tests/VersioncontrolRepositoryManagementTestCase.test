@@ -11,14 +11,14 @@
 class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
 
   protected $admin_user;
-  public $repoCache;
+  public $controller;
 
   /**
    * Implementation of getInfo().
    */
   public static function getInfo() {
     return array(
-      'name' => t('Version Control Repository Management funcional testing'),
+      'name' => t('Version Control Repository Management functional testing'),
       'description' => t('Functional test for Repository management.'),
       'group' => t('Version Control'),
     );
@@ -29,14 +29,14 @@ class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
    */
   function setUp() {
     // load core and fake test backend modules
-    parent::setUp('autoload', 'versioncontrol', 'versioncontrol_test');
+    parent::setUp('dbtng', 'autoload', 'versioncontrol', 'versioncontrol_test');
 
     // Create and login the admin user
     $this->admin_user = $this->drupalCreateUser(array('administer version control systems'));
     $this->drupalLogin($this->admin_user);
 
     // repository cache
-    $this->repoCache = VersioncontrolRepositoryCache::getInstance();
+    $this->controller = new VersioncontrolRepositoryController();
   }
 
   public function testAddRepository() {
@@ -53,7 +53,7 @@ class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
 
     // Confirm that the repository has been created, and then query the repo name.
     $this->assertRaw(t('The %repository repository has been added.', array('%repository' => $edit['repo_name'])), t('Repository successfully created.'));
-    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    $found_repositories = $this->controller->load(array(), array('name' => array($edit['repo_name'])));
     $this->assertTrue(count($found_repositories)==1, t('Repository found in database.'));
   }
 
@@ -68,7 +68,7 @@ class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
 
     // confirm that the repository has been deleted, and then query the repo name.
     $this->assertRaw(t('The %repository repository has been deleted.', array('%repository' => $edit['repo_name'])), t('Repository successfully deleted.'));
-    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    $found_repositories = $this->controller->load(array(), array('name' => array($edit['repo_name'])));
     $this->assertTrue(count($found_repositories)==0, t('Repository not found in database.'));
   }
 
@@ -90,7 +90,7 @@ class VersioncontrolRepositoryManagementTestCase extends DrupalWebTestCase {
     // confirm that the repository has been edited, and then query the repo root
     //TODO do i need to validate all fields?
     $this->assertRaw(t('The %repository repository has been updated.', array('%repository' => $edit['repo_name'])), t('Repository successfully updated.'));
-    $found_repositories = $this->repoCache->getRepositories( array('names' => array($edit['repo_name'])) );
+    $found_repositories = $this->controller->load(array(), array('name' => array($edit['repo_name'])));
     if ($is_repo_edited = (count($found_repositories)==1)) {
       $edited_repo = array_shift($found_repositories);
       $is_repo_edited = $edited_repo['root'] == $edit['root'];

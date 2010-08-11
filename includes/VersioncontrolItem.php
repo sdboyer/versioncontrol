@@ -13,7 +13,7 @@
  * revision, if applicable. Most item revisions, but probably not all of
  * them, are recorded in the database.
  */
-abstract class VersioncontrolItem implements ArrayAccess {
+abstract class VersioncontrolItem extends VersioncontrolEntity {
   /**
    * DB identifier.
    *
@@ -75,13 +75,6 @@ abstract class VersioncontrolItem implements ArrayAccess {
    */
   public $line_changes = array();
 
-  /**
-   * The repository where the operation was done.
-   *
-   * @var    VersioncontrolRepository
-   */
-  public $repository;
-
   //TODO subclass per type?
   public $selected_label;
   public $commit_operation;
@@ -103,15 +96,15 @@ abstract class VersioncontrolItem implements ArrayAccess {
   /**
    * Constructor.
    */
-  public function __construct($type, $path, $revision, $action, $repository, $deleted = NULL, $item_revision_id = NULL) {
-    $this->type = $type;
-    $this->path = $path;
-    $this->revision = $revision;
-    $this->action = $action;
-    $this->repository = $repository;
-    $this->deleted = $deleted;
-    $this->item_revision_id = $item_revision_id;
-  }
+//  public function __construct($type, $path, $revision, $action, $repository, $deleted = NULL, $item_revision_id = NULL) {
+//    $this->type = $type;
+//    $this->path = $path;
+//    $this->revision = $revision;
+//    $this->action = $action;
+//    $this->repository = $repository;
+//    $this->deleted = $deleted;
+//    $this->item_revision_id = $item_revision_id;
+//  }
 
   /**
    * Return TRUE if the given item is an existing or an already deleted
@@ -795,6 +788,10 @@ abstract class VersioncontrolItem implements ArrayAccess {
     unset($this->repo_id);
   }
 
+  public function save() {}
+  public function update() {}
+  public function buildSave(&$query) {}
+
   /**
    * Get the user-visible version of an item's revision identifier, as
    * plaintext.
@@ -862,19 +859,4 @@ abstract class VersioncontrolItem implements ArrayAccess {
    *   anymore.
    */
   public abstract function getSelectedLabelFromItem(&$other_item, $other_item_tags = array());
-
-  //ArrayAccess interface implementation
-  public function offsetExists($offset) {
-    return isset($this->$offset);
-  }
-  public function offsetGet($offset) {
-    return $this->$offset;
-  }
-  public function offsetSet($offset, $value) {
-    $this->$offset = $value;
-  }
-  public function offsetUnset($offset) {
-    unset($this->$offset);
-  }
-
 }

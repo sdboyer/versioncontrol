@@ -10,7 +10,7 @@
  */
 class VersioncontrolRepositoryUnitTestingTestCase extends DrupalWebTestCase {
 
-  public $repoCache;
+  public $controller;
 
   /**
    * Implementation of getInfo().
@@ -29,25 +29,25 @@ class VersioncontrolRepositoryUnitTestingTestCase extends DrupalWebTestCase {
    */
   function setUp() {
     // load core and fake test backend modules
-    parent::setUp('autoload', 'versioncontrol', 'versioncontrol_test');
-    $this->repoCache = VersioncontrolRepositoryCache::getInstance();
+    parent::setUp('dbtng', 'autoload', 'versioncontrol', 'versioncontrol_test');
+    $this->controller = new VersioncontrolRepositoryController();
   }
 
   public function testGetRepositoryEmptyParam() {
     $repo_id = '';
-    $repository = $this->repoCache->getRepository($repo_id);
+    $repository = $this->controller->load(array($repo_id));
     $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository with empty repo_id'), 'getRepository');
   }
 
   public function testGetRepositoryNullParam() {
     $repo_id = NULL;
-    $repository = $this->repoCache->getRepository($repo_id);
+    $repository = $this->controller->load(array($repo_id));
     $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository with a NULL repo_id'), 'getRepository');
   }
 
   public function testGetRepositoryNotFound() {
     $repo_id = -1;
-    $repository = $this->repoCache->getRepository($repo_id);
+    $repository = $this->controller->load(array($repo_id));
     $this->assertNull($repository, t('Make sure we get a NULL when trying to get a repository which do not exit'), 'getRepository');
   }
 
@@ -58,9 +58,9 @@ class VersioncontrolRepositoryUnitTestingTestCase extends DrupalWebTestCase {
       'vcs' => 'test',
       'backend' => $backends['test'],
     );
-    $repo = new VersioncontrolTestRepository(NULL, $data, FALSE);
+    $repo = $backends['test']->buildObject('repo', $data);
     $repo->insert();
-    $repositories = $this->repoCache->getRepositories(array('repo_id' => $repo->repo_id));
+    $repositories = $this->controller->load(array($repo->repo_id));
     $this->assertTrue(is_a($repositories[$repo->repo_id], 'VersioncontrolRepository'), t('Make sure we get a valid return when passing a good repo_id.'), 'getRepository');
   }
 }
