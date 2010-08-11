@@ -46,8 +46,8 @@ function versioncontrol_account_register_page($register_uid = FALSE, $register_a
     return;
   }
 
-  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array('uids' => array($register_uid)), TRUE);
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getAllRepositories();
+  $accounts = versioncontrol_user_accounts_load($register_uid, TRUE);
+  $repositories = versioncontrol_repository_load_multiple(FALSE);
 
   // Construct the '#options' array.
   $account_usernames = array();
@@ -261,7 +261,7 @@ function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_userna
     return;
   }
   elseif (count($selected_usernames) == 1) {
-    $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($any_repo_id);
+    $repository = versioncontrol_repository_load($any_repo_id);
     return drupal_get_form('versioncontrol_account_edit_form',
       $uid, $repository, reset($selected_usernames)
     );
@@ -277,15 +277,13 @@ function versioncontrol_account_page($accounts, $url_repo_id = NULL, $url_userna
  * Show a list of VCS accounts to the admin or the user.
  *
  * @param $accounts
- *   The list of accounts to show, in VersioncontrolAccountCache::getInstance()->getAccounts() format.
+ *   The list of accounts to show, in versioncontrol_user_account_load_multiple format.
  */
 function versioncontrol_account_list_form(&$form_state, $accounts) {
   $form = array();
   $form['#id'] = 'versioncontrol-account-list-form';
 
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
-    'repo_ids' => array_keys(reset($accounts)),
-  ));
+  $repositories = versioncontrol_repository_load_multiple(array_keys(reset($accounts)));
 
   $header = array(t('Repository'), t('Username'), '');
   $rows = array();
@@ -528,14 +526,13 @@ function versioncontrol_account_edit_form_submit($form, &$form_state) {
     ));
   }
   else {
-    //FIXME why username are a required constraint?
+    //FIXME why username are a required constraint? <-- shouldn't be anymore
     //      uid and repo_id are the PK on the table getAccounts query
-    $constraints = array(
-      'uids' => array($uid),
-      'repo_ids' => array($repository->repo_id),
-      'usernames' => array($form['#original_username'])
+    $conditions = array(
+      'repo_id' => array($repository->repo_id),
+      'username' => array($form['#original_username'])
     );
-    $vcs_accounts = VersioncontrolAccountCache::getInstance()->getAccounts($constraints, TRUE);
+    $vcs_accounts = versioncontrol_user_account_load_multiple(array($uid), $conditions, array('include unauthorized' => TRUE));
     // if we got an original_username we can trust on getting a value
     $vcs_account = array_shift(array_shift($vcs_accounts));
 

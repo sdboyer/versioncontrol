@@ -86,6 +86,8 @@ function versioncontrol_admin_settings_submit($form, &$form_state) {
 /**
  * Form callback for "admin/project/versioncontrol-accounts":
  * A list of accounts with filtering possibilities.
+ *
+ * TODO Completely reimplement in Views.
  */
 function versioncontrol_admin_account_list_form(&$form_state) {
   // Retrieve a list of all repositories with registered VCS accounts.
@@ -95,7 +97,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
   while ($repo_id = db_result($result)) {
     $repo_ids[] = $repo_id;
   }
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('repo_ids' => $repo_ids));
+  $repositories = versioncontrol_repository_load_multiple($repo_ids);
 
   $filter_form = versioncontrol_admin_account_list_filter_form($form_state, $repositories);
   $filter_form['#id'] = 'versioncontrol-account-filter-form';
@@ -112,7 +114,7 @@ function versioncontrol_admin_account_list_form(&$form_state) {
   ));
 
   // Filter the list of accounts.
-  $accounts = VersioncontrolAccountCache::getInstance()->getAccounts(array(), TRUE);
+  $accounts = versioncontrol_user_accounts_load_multiple(array(), array(), array('include unauthorized' => TRUE));
 
   foreach (module_implements('versioncontrol_filter_accounts') as $module) {
     $function = $module .'_versioncontrol_filter_accounts';
@@ -300,10 +302,12 @@ function versioncontrol_admin_account_list_filter_form_submit($form, &$form_stat
  * Unset filtered accounts before they are even attempted to be displayed
  * on the account list.
  *
+ * TODO remove, obsoleted by Views
+ *
  * @param $accounts
  *   The accounts that would normally be displayed, in the same format as the
- *   return value of VersioncontrolAccountCache::getInstance()->getAccounts(). Entries in this list
- *   may be unset by this filter function.
+ *   return value of versioncontrol_user_accounts_load_multiple(). Entries in
+ *   this list may be unset by this filter function.
  */
 function versioncontrol_versioncontrol_filter_accounts(&$accounts) {
   if (empty($accounts)) {
@@ -346,7 +350,7 @@ function versioncontrol_admin_account_import_form(&$form_state) {
       $selected_backends[] = $vcs;
     }
   }
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('vcs' => $selected_backends));
+  $repositories = versioncontrol_repository_load_multiple(array('vcs' => $selected_backends));
 
   if (empty($repositories)) {
     $form['no_repositories'] = array(
@@ -394,7 +398,7 @@ function versioncontrol_admin_account_import_form(&$form_state) {
  * Only actually validates that the repo backend is correctly configured.
  */
 function versioncontrol_admin_account_import_form_validate($form, &$form_state) {
-  if (is_null(VersioncontrolRepositoryCache::getInstance()->getRepository($form_state['values']['repo_id']))) {
+  if (is_null(versioncontrol_repository_load($form_state['values']['repo_id']))) {
     form_error($form['data'], t('The selected repository could not be found.'));
   }
 }
@@ -404,7 +408,7 @@ function versioncontrol_admin_account_import_form_validate($form, &$form_state) 
  * Call the repo::importAccounts() with the given data.
  */
 function versioncontrol_admin_account_import_form_submit($form, &$form_state) {
-  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($form_state['values']['repo_id']);
+  $repository = versioncontrol_repository_load($form_state['values']['repo_id']);
   $repository->importAccounts($form_state['values']['data']);
 }
 
@@ -449,7 +453,7 @@ function versioncontrol_admin_account_export_form(&$form_state) {
       $selected_backends[] = $vcs;
     }
   }
-  $repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array('vcs' => $selected_backends));
+  $repositories = versioncontrol_repository_load_multiple(array(), array('vcs' => $selected_backends));
 
   if (empty($repositories)) {
     $form['no_repositories'] = array(
@@ -706,7 +710,7 @@ function versioncontrol_admin_repository_edit(&$form_state, $repository, $vcs = 
     '#default_value' => $current_registration_message,
   );
 
-  $backend_capabilities = $backends[$form['#vcs']]['capabilities'];
+  $backend_capabilities = $backends[$form['#vcs']]->capabilities;
 
   if (in_array(VERSIONCONTROL_CAPABILITY_COMMIT_RESTRICTIONS, $backend_capabilities)) {
     $form['commit_restrictions'] = array(
@@ -803,9 +807,10 @@ function versioncontrol_admin_repository_edit_validate($form, &$form_state) {
   if (!empty($form['#repository']) && $form_state['values']['repo_name'] == $form['#original_name']) {
     return;
   }
-  $same_repositories = VersioncontrolRepositoryCache::getInstance()->getRepositories(array(
-    'names' => array($form_state['values']['repo_name']),
-  ));
+
+  $conditions = array('name' => $form_state['values']['repo_name']);
+
+  $same_repositories = versioncontrol_repository_load_multiple(array(), $conditions);
   if (!empty($same_repositories)) {
     form_error($form['repository_information']['repo_name'],
       t('The repository name %reponame is already in use, please assign a different one.',
@@ -900,7 +905,7 @@ function versioncontrol_admin_repository_delete_confirm(&$form_state, $repositor
  * Delete the repository when the confirmation form is submitted.
  */
 function versioncontrol_admin_repository_delete_confirm_submit($form, &$form_state) {
-  $repository = VersioncontrolRepositoryCache::getInstance()->getRepository($form['#repo_id']);
+  $repository = versioncontrol_repository_load($form['#repo_id']);
   $repository->delete();
   drupal_set_message(t('The %repository repository has been deleted.', array(
     '%repository' => $repository['name'],
